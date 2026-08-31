@@ -110,9 +110,9 @@ class AppState(
         )
     }
 
-    fun markPaid(row: BillRow) {
+    fun markPaid(row: BillRow, amount: Double = row.bill.amount) {
         val date = row.dueDate ?: return
-        scope.launch { repository.markPaid(row.bill, date, zone = zone) }
+        scope.launch { repository.markPaid(row.bill, date, amount = amount, zone = zone) }
     }
 
     fun undoPaid(row: BillRow) {

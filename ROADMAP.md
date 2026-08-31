@@ -61,13 +61,6 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: a deliberately corrupted database file at launch produces a recovery dialog and a log entry instead of a dead process; a failing write surfaces in the UI; `sqlite_version()` is logged at startup.
   Complexity: M
 
-- [ ] P0: **Ask the amount when quick-paying a variable bill.**
-  Why: the ledger's one-click check writes the estimated amount into payment history for variable bills, which corrupts the exact record the app exists to keep. TimelyBills' broken mark-paid is its top review complaint.
-  Evidence: `BillRepository.markPaid` defaults `amount = bill.amount`; trustpilot.com/review/timelybills.app.
-  Touches: `BillsScreen.kt`, `AppState.kt`. Complements the P1 bill-detail dialog, which handles the full custom-amount path.
-  Acceptance: the quick action on a variable bill opens a prefilled amount prompt; fixed bills stay one-click.
-  Complexity: S
-
 - [ ] P1: **Automatic rolling backups with restore.**
   Why: the category's recurring catastrophe is stranded bill history (Prism, return7's BillMinder, Mint); the single-file design is only a selling point when it is snapshotted and restorable.
   Evidence: Apple Community thread 255168571 ("I have lost all of my bill history now 3 times"); the Android roadmap plans the same.

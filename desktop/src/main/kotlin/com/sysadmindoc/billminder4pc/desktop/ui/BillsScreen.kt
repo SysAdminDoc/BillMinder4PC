@@ -1,6 +1,7 @@
 package com.sysadmindoc.billminder4pc.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,18 +23,25 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sysadmindoc.billminder4pc.desktop.AppState
 import com.sysadmindoc.billminder4pc.desktop.BillRow
 import com.sysadmindoc.billminder4pc.desktop.Format
+import com.sysadmindoc.billminder4pc.desktop.theme.CatCrust
 import com.sysadmindoc.billminder4pc.desktop.theme.CatGreen
 import com.sysadmindoc.billminder4pc.desktop.theme.CatRed
 import com.sysadmindoc.billminder4pc.desktop.theme.CatSubtext0
@@ -43,6 +51,8 @@ import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 @Composable
 fun BillsScreen(state: AppState) {
     val dashboard by state.dashboard.collectAsState()
+    var variablePaymentRow by remember { mutableStateOf<BillRow?>(null) }
+    var paymentAmountText by remember { mutableStateOf("") }
 
     if (!dashboard.loaded) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -51,33 +61,114 @@ fun BillsScreen(state: AppState) {
         return
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item { SummaryHeader(dashboard.totalDue, dashboard.paid.size, dashboard.rows.size, dashboard.overdue.size) }
+    fun quickPay(row: BillRow) {
+        if (row.bill.isVariableAmount) {
+            variablePaymentRow = row
+            paymentAmountText = row.bill.amount.toString()
+        } else {
+            state.markPaid(row)
+        }
+    }
 
-        if (dashboard.overdue.isNotEmpty()) {
-            item { SectionHeading("Needs attention", dashboard.overdue.size, CatRed) }
-            items(dashboard.overdue, key = { it.bill.id }) { BillCard(it, dashboard.asOfDate, state) }
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item { SummaryHeader(dashboard.totalDue, dashboard.paid.size, dashboard.rows.size, dashboard.overdue.size) }
+
+            if (dashboard.overdue.isNotEmpty()) {
+                item { SectionHeading("Needs attention", dashboard.overdue.size, CatRed) }
+                items(dashboard.overdue, key = { it.bill.id }) {
+                    BillCard(it, dashboard.asOfDate, onMarkPaid = ::quickPay, onUndoPaid = state::undoPaid)
+                }
+            }
+            if (dashboard.upcoming.isNotEmpty()) {
+                item { SectionHeading("Coming up", dashboard.upcoming.size, MaterialTheme.colorScheme.primary) }
+                items(dashboard.upcoming, key = { it.bill.id }) {
+                    BillCard(it, dashboard.asOfDate, onMarkPaid = ::quickPay, onUndoPaid = state::undoPaid)
+                }
+            }
+            if (dashboard.paid.isNotEmpty()) {
+                item { SectionHeading("Paid", dashboard.paid.size, CatGreen) }
+                items(dashboard.paid, key = { it.bill.id }) {
+                    BillCard(it, dashboard.asOfDate, onMarkPaid = ::quickPay, onUndoPaid = state::undoPaid)
+                }
+            }
+            if (dashboard.rows.isEmpty()) {
+                item {
+                    Text(
+                        "No bills yet. Import from BillMinder for Android, or add one.",
+                        color = CatSubtext0,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(top = 40.dp)
+                    )
+                }
+            }
         }
-        if (dashboard.upcoming.isNotEmpty()) {
-            item { SectionHeading("Coming up", dashboard.upcoming.size, MaterialTheme.colorScheme.primary) }
-            items(dashboard.upcoming, key = { it.bill.id }) { BillCard(it, dashboard.asOfDate, state) }
-        }
-        if (dashboard.paid.isNotEmpty()) {
-            item { SectionHeading("Paid", dashboard.paid.size, CatGreen) }
-            items(dashboard.paid, key = { it.bill.id }) { BillCard(it, dashboard.asOfDate, state) }
-        }
-        if (dashboard.rows.isEmpty()) {
-            item {
-                Text(
-                    "No bills yet. Import from BillMinder for Android, or add one.",
-                    color = CatSubtext0,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 40.dp)
-                )
+
+        variablePaymentRow?.let { row ->
+            val amount = paymentAmountText.trim().replace(',', '.').toDoubleOrNull()
+                ?.takeIf { it.isFinite() && it > 0.0 }
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(CatCrust.copy(alpha = 0.82f))
+                    .pointerInput(row.bill.id) {
+                        detectTapGestures { variablePaymentRow = null }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.width(440.dp)
+                        .pointerInput(row.bill.id) { detectTapGestures { } }
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            "Record ${row.bill.name} payment",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Text(
+                            "Enter the actual amount paid. The saved estimate is " +
+                                Format.money(row.bill.amount, row.bill.currency) + ".",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = paymentAmountText,
+                            onValueChange = { paymentAmountText = it },
+                            label = { Text("Amount") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            isError = amount == null,
+                            supportingText = {
+                                if (amount == null) Text("Enter a positive amount")
+                            }
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { variablePaymentRow = null }) {
+                                Text("Cancel")
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            TextButton(
+                                enabled = amount != null,
+                                onClick = {
+                                    state.markPaid(row, requireNotNull(amount))
+                                    variablePaymentRow = null
+                                }
+                            ) {
+                                Text("Record payment")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -143,7 +234,12 @@ private fun SectionHeading(label: String, count: Int, accent: androidx.compose.u
 }
 
 @Composable
-private fun BillCard(row: BillRow, today: java.time.LocalDate, state: AppState) {
+private fun BillCard(
+    row: BillRow,
+    today: java.time.LocalDate,
+    onMarkPaid: (BillRow) -> Unit,
+    onUndoPaid: (BillRow) -> Unit
+) {
     val due = row.dueDate
     val accent = when {
         row.isPaid -> CatGreen
@@ -216,7 +312,7 @@ private fun BillCard(row: BillRow, today: java.time.LocalDate, state: AppState) 
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.width(12.dp))
-            IconButton(onClick = { if (row.isPaid) state.undoPaid(row) else state.markPaid(row) }) {
+            IconButton(onClick = { if (row.isPaid) onUndoPaid(row) else onMarkPaid(row) }) {
                 Icon(
                     if (row.isPaid) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
                     contentDescription = if (row.isPaid) "Mark unpaid" else "Mark paid",

@@ -1,19 +1,28 @@
 package com.sysadmindoc.billminder4pc.desktop
 
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.EncodedImageFormat
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Renders the real window content offscreen. This is both the smoke test that the UI composes
@@ -27,24 +36,14 @@ class ScreenshotTest {
 
     @Test
     fun `the bills screen renders against a seeded database`() = runBlocking {
-        val db = DatabaseFactory.openInMemory()
-        val markerFile = temporaryFolder.newFolder("seed-state").toPath().resolve("sample-data-initialized")
-        SampleData.seedIfFirstRun(db, databaseExistedAtStartup = false, markerFile = markerFile)
-        val state = AppState(db)
-
-        // collectAsState reads the StateFlow's current value, so the data has to have landed
-        // before the first frame or the render captures the loading placeholder.
-        val dashboard = withTimeout(15_000) { state.dashboard.first { it.loaded } }
-        assertTrue("sample data should have produced bills", dashboard.rows.isNotEmpty())
+        val fixture = seededFixture("seed-state")
+        assertTrue("sample data should have produced bills", fixture.dashboard.rows.isNotEmpty())
 
         val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
         outDir.mkdirs()
 
-        val scene = ImageComposeScene(width = 1120, height = 760, density = Density(1f)) {
-            BillMinderTheme { App(state) }
-        }
         try {
-            val data = requireNotNull(scene.render().encodeToData(EncodedImageFormat.PNG)) {
+            val data = requireNotNull(fixture.scene.render().encodeToData(EncodedImageFormat.PNG)) {
                 "Skia returned no PNG data"
             }
             val file = File(outDir, "bills.png")
@@ -52,6 +51,104 @@ class ScreenshotTest {
             assertTrue("screenshot should not be empty", file.length() > 5_000)
             println("wrote ${file.absolutePath} (${file.length()} bytes)")
         } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
+    fun `variable bill quick pay renders an amount prompt`() = runBlocking {
+        val fixture = seededFixture("variable-seed-state")
+
+        try {
+            fixture.scene.render().close()
+            val variableBillButton = Offset(1052f, 555f)
+            fixture.scene.sendPointerEvent(
+                eventType = PointerEventType.Press,
+                position = variableBillButton,
+                button = PointerButton.Primary
+            )
+            fixture.scene.sendPointerEvent(
+                eventType = PointerEventType.Release,
+                position = variableBillButton,
+                button = PointerButton.Primary
+            )
+
+            val data = requireNotNull(fixture.scene.render().encodeToData(EncodedImageFormat.PNG)) {
+                "Skia returned no PNG data for the payment prompt"
+            }
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, "variable-payment.png")
+            file.writeBytes(data.bytes)
+            assertTrue("payment prompt screenshot should not be empty", file.length() > 5_000)
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
+    fun `fixed bill quick pay stays one click`() = runBlocking {
+        val fixture = seededFixture("fixed-seed-state")
+        val spotify = fixture.dashboard.rows.single { it.bill.name == "Spotify" }
+
+        try {
+            fixture.scene.render().close()
+            val fixedBillButton = Offset(1052f, 387f)
+            fixture.scene.sendPointerEvent(
+                eventType = PointerEventType.Press,
+                position = fixedBillButton,
+                button = PointerButton.Primary
+            )
+            fixture.scene.sendPointerEvent(
+                eventType = PointerEventType.Release,
+                position = fixedBillButton,
+                button = PointerButton.Primary
+            )
+
+            val payment = withTimeout(5_000) {
+                fixture.state.repository.observePayments().first { payments ->
+                    payments.any { it.billId == spotify.bill.id }
+                }.single { it.billId == spotify.bill.id }
+            }
+            assertEquals(spotify.bill.amount, payment.amount, 0.001)
+        } finally {
+            fixture.close()
+        }
+    }
+
+    private suspend fun seededFixture(folder: String): SceneFixture {
+        val db = DatabaseFactory.openInMemory()
+        val markerFile = temporaryFolder.newFolder(folder).toPath().resolve("sample-data-initialized")
+        val today = LocalDate.of(2026, 8, 31)
+        SampleData.seedIfFirstRun(
+            db,
+            databaseExistedAtStartup = false,
+            markerFile = markerFile,
+            today = today
+        )
+        val zone = ZoneId.of("UTC")
+        val state = AppState(
+            db = db,
+            zone = zone,
+            clock = Clock.fixed(Instant.parse("2026-08-31T12:00:00Z"), zone),
+            dayChangeSignals = emptyFlow()
+        )
+
+        // collectAsState reads the StateFlow's current value, so the data has to land before the
+        // first frame or the render captures the loading placeholder.
+        val dashboard = withTimeout(15_000) { state.dashboard.first { it.loaded } }
+        val scene = ImageComposeScene(width = 1120, height = 760, density = Density(1f)) {
+            BillMinderTheme { App(state) }
+        }
+        return SceneFixture(state, dashboard, scene)
+    }
+
+    private data class SceneFixture(
+        val state: AppState,
+        val dashboard: Dashboard,
+        val scene: ImageComposeScene
+    ) : AutoCloseable {
+        override fun close() {
             scene.close()
             state.close()
         }

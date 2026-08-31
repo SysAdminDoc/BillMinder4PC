@@ -5,6 +5,7 @@ import com.sysadmindoc.billminder4pc.core.model.Recurrence
 import com.sysadmindoc.billminder4pc.data.BillRepository
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -54,6 +55,43 @@ class AppStateTest {
             assertEquals(1, after.overdue.size)
             assertEquals(0, after.upcoming.size)
             assertEquals("1 day overdue", Format.relativeDue(after.rows.single().dueDate!!, after.asOfDate))
+        } finally {
+            state.close()
+        }
+    }
+
+    @Test
+    fun `mark paid records the supplied amount for a variable bill`() = runBlocking {
+        val dueDate = LocalDate.of(2026, 9, 1)
+        val db = DatabaseFactory.openInMemory()
+        val repository = BillRepository(db)
+        repository.addBill(
+            Bill(
+                name = "Electric",
+                amount = 138.42,
+                dueDay = dueDate.dayOfMonth,
+                recurrence = Recurrence.MONTHLY,
+                isVariableAmount = true,
+                amountMin = 90.0,
+                amountMax = 190.0,
+                anchorEpochDay = dueDate.toEpochDay()
+            )
+        )
+        val state = AppState(
+            db = db,
+            zone = zone,
+            clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), zone),
+            dayChangeSignals = emptyFlow()
+        )
+
+        try {
+            val row = withTimeout(5_000) { state.dashboard.first { it.loaded }.rows.single() }
+            state.markPaid(row, amount = 127.31)
+
+            val payment = withTimeout(5_000) {
+                state.repository.observePayments().first { it.isNotEmpty() }.single()
+            }
+            assertEquals(127.31, payment.amount, 0.001)
         } finally {
             state.close()
         }
