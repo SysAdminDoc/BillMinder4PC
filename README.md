@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-58A6FF?style=for-the-badge">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.1-58A6FF?style=for-the-badge">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-4ade80?style=for-the-badge">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-58A6FF?style=for-the-badge">
 </p>
@@ -16,7 +16,7 @@ This is the desktop companion to [BillMinder for Android](https://github.com/Sys
 
 ## Status
 
-Version 0.2.0 is an early but usable desktop build. Bills, Calendar, Insights, and Settings all render live local data. The app can add bills, settle them from the ledger or calendar, remember appearance and reminder preferences, and export a local backup. Windows notification delivery isn't built yet, though the wall-clock scheduler already computes reminder events. See [ROADMAP.md](ROADMAP.md).
+Version 0.2.1 is an early but usable desktop build. Bills, Calendar, Insights, and Settings all render live local data. The app can add bills, settle them from the ledger or calendar, remember appearance and reminder preferences, and export a local backup. Windows notification delivery isn't built yet, though the wall-clock scheduler already computes reminder events. See [ROADMAP.md](ROADMAP.md).
 
 ![The bills view](docs/screenshots/v0.2.0/bills.png)
 

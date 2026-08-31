@@ -4,6 +4,12 @@ All notable changes to this project are recorded here.
 
 ## Unreleased
 
+## [0.2.1] - 2026-08-31
+
+### Fixed
+- Release packaging now preserves Room's generated database implementation, so the installed app opens instead of stopping during database startup.
+- MSI packaging now opens and queries a temporary database through the optimized runtime. This catches missing Room classes and broken native SQLite bindings before an installer is created.
+
 ## [0.2.0] - 2026-08-31
 
 ### Added
