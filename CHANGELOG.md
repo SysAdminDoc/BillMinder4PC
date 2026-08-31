@@ -2,6 +2,11 @@
 
 All notable changes to this project are recorded here.
 
+## Unreleased
+
+### Fixed
+- The open ledger now rolls over at midnight without waiting for a database change, so due groups and relative dates stay current overnight.
+
 ## [0.1.0] - 2026-08-31
 
 First scaffold. The app builds, runs, and reads and writes a real database.

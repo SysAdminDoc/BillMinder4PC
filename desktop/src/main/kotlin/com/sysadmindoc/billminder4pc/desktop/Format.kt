@@ -22,7 +22,7 @@ object Format {
     fun monthLabel(date: LocalDate): String = date.format(monthAbbrev).uppercase()
 
     /** Plain-language due state. The sign of the gap is what the reader actually needs first. */
-    fun relativeDue(date: LocalDate, today: LocalDate = LocalDate.now()): String {
+    fun relativeDue(date: LocalDate, today: LocalDate): String {
         val days = ChronoUnit.DAYS.between(today, date).toInt()
         return when {
             days == 0 -> "Due today"

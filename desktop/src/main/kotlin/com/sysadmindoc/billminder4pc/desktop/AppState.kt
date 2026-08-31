@@ -10,13 +10,27 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
+
+private fun minuteSignals(): Flow<Unit> = flow {
+    while (true) {
+        delay(60_000)
+        emit(Unit)
+    }
+}
 
 /** A bill paired with the occurrence it is currently sitting on. */
 data class BillRow(
@@ -34,6 +48,7 @@ data class Dashboard(
     val upcoming: List<BillRow> = emptyList(),
     val paid: List<BillRow> = emptyList(),
     val totalDue: Double = 0.0,
+    val asOfDate: LocalDate = LocalDate.MIN,
     val loaded: Boolean = false
 )
 
@@ -43,15 +58,22 @@ data class Dashboard(
  */
 class AppState(
     private val db: BillDatabase,
-    private val zone: ZoneId = ZoneId.systemDefault()
+    private val zone: ZoneId = ZoneId.systemDefault(),
+    private val clock: Clock = Clock.system(zone),
+    dayChangeSignals: Flow<Unit> = minuteSignals()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val repository = BillRepository(db)
 
+    private val currentDay = dayChangeSignals
+        .onStart { emit(Unit) }
+        .map { LocalDate.now(clock.withZone(zone)) }
+        .distinctUntilChanged()
+
     val dashboard: StateFlow<Dashboard> =
-        combine(repository.observeBills(), repository.observePayments()) { bills, payments ->
-            buildDashboard(bills, payments, LocalDate.now(zone))
+        combine(repository.observeBills(), repository.observePayments(), currentDay) { bills, payments, today ->
+            buildDashboard(bills, payments, today)
         }.stateIn(scope, SharingStarted.Eagerly, Dashboard())
 
     private fun buildDashboard(
@@ -83,6 +105,7 @@ class AppState(
             upcoming = upcoming,
             paid = paidRows,
             totalDue = (overdue + upcoming).sumOf { it.bill.amount },
+            asOfDate = today,
             loaded = true
         )
     }

@@ -60,15 +60,15 @@ fun BillsScreen(state: AppState) {
 
         if (dashboard.overdue.isNotEmpty()) {
             item { SectionHeading("Needs attention", dashboard.overdue.size, CatRed) }
-            items(dashboard.overdue, key = { it.bill.id }) { BillCard(it, state) }
+            items(dashboard.overdue, key = { it.bill.id }) { BillCard(it, dashboard.asOfDate, state) }
         }
         if (dashboard.upcoming.isNotEmpty()) {
             item { SectionHeading("Coming up", dashboard.upcoming.size, MaterialTheme.colorScheme.primary) }
-            items(dashboard.upcoming, key = { it.bill.id }) { BillCard(it, state) }
+            items(dashboard.upcoming, key = { it.bill.id }) { BillCard(it, dashboard.asOfDate, state) }
         }
         if (dashboard.paid.isNotEmpty()) {
             item { SectionHeading("Paid", dashboard.paid.size, CatGreen) }
-            items(dashboard.paid, key = { it.bill.id }) { BillCard(it, state) }
+            items(dashboard.paid, key = { it.bill.id }) { BillCard(it, dashboard.asOfDate, state) }
         }
         if (dashboard.rows.isEmpty()) {
             item {
@@ -143,7 +143,7 @@ private fun SectionHeading(label: String, count: Int, accent: androidx.compose.u
 }
 
 @Composable
-private fun BillCard(row: BillRow, state: AppState) {
+private fun BillCard(row: BillRow, today: java.time.LocalDate, state: AppState) {
     val due = row.dueDate
     val accent = when {
         row.isPaid -> CatGreen
@@ -204,7 +204,7 @@ private fun BillCard(row: BillRow, state: AppState) {
                 }
                 due?.let {
                     Text(
-                        if (row.isPaid) "Paid" else Format.relativeDue(it),
+                        if (row.isPaid) "Paid" else Format.relativeDue(it, today),
                         style = MaterialTheme.typography.labelMedium,
                         color = accent
                     )

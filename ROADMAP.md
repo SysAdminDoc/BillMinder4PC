@@ -47,13 +47,6 @@ Things a phone app structurally cannot do. This is where the app stops being a p
 
 Added 2026-08-31 from the ecosystem research pass (details and sources in RESEARCH.md). Ordered by priority; these slot in alongside the blocks above rather than replacing them.
 
-- [ ] P0: **Recompute the dashboard when the day changes.**
-  Why: the dashboard derives "today" only when a database flow emits, so an app left open overnight shows yesterday's groupings and "Due tomorrow" for a bill due today until something writes.
-  Evidence: `desktop/.../AppState.kt:52-55`; `Format.kt:25` has the same `LocalDate.now()` default.
-  Touches: `AppState.kt`, `Format.kt`, a new test with an injectable clock.
-  Acceptance: with a controlled clock crossing midnight, groupings and relative-due text update without any database write.
-  Complexity: S
-
 - [ ] P0: **Single-instance guard.**
   Why: two launches are two processes on one database file today, and duplicate tray icons plus double toasts the moment tray residency lands. Must precede the tray work.
   Evidence: `Main.kt` takes no lock; standard desktop convention.
