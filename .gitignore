@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# Working notes, not documentation
+CLAUDE.md
+CODEX_CHANGELOG.md
+.claude/
+
+# IDE
+.idea/
+*.iml
+.kotlin/
+out/
+
+# Signing and secrets
+keystore.properties
+*.jks
+*.keystore
+*.pfx
+
+# Build output
+*.msi
+*.exe
+!gradlew.bat
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
