@@ -1,6 +1,7 @@
 package com.sysadmindoc.billminder4pc.data
 
 import androidx.room3.Room
+import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
 import java.nio.file.Path
@@ -23,4 +24,12 @@ object DatabaseFactory {
             .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
+
+    suspend fun sqliteVersion(db: BillDatabase): String =
+        db.useReaderConnection { connection ->
+            connection.usePrepared("SELECT sqlite_version()") { statement ->
+                check(statement.step()) { "SQLite returned no version row" }
+                statement.getText(0)
+            }
+        }
 }

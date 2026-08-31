@@ -4,16 +4,20 @@ import com.sysadmindoc.billminder4pc.core.cycle.BillCycles
 import com.sysadmindoc.billminder4pc.core.cycle.ResolvedCycle
 import com.sysadmindoc.billminder4pc.core.model.Bill
 import com.sysadmindoc.billminder4pc.core.model.Payment
+import com.sysadmindoc.billminder4pc.data.AppLogger
 import com.sysadmindoc.billminder4pc.data.BillDatabase
 import com.sysadmindoc.billminder4pc.data.BillRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
@@ -60,11 +64,15 @@ class AppState(
     private val db: BillDatabase,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val clock: Clock = Clock.system(zone),
-    dayChangeSignals: Flow<Unit> = minuteSignals()
+    dayChangeSignals: Flow<Unit> = minuteSignals(),
+    private val logger: AppLogger = AppLogger()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val repository = BillRepository(db)
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private val currentDay = dayChangeSignals
         .onStart { emit(Unit) }
@@ -112,12 +120,34 @@ class AppState(
 
     fun markPaid(row: BillRow, amount: Double = row.bill.amount) {
         val date = row.dueDate ?: return
-        scope.launch { repository.markPaid(row.bill, date, amount = amount, zone = zone) }
+        scope.launch {
+            try {
+                repository.markPaid(row.bill, date, amount = amount, zone = zone)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Throwable) {
+                logger.error("Mark-paid write failed for bill ${row.bill.id}", failure)
+                _errorMessage.value = "Couldn't record the payment. Details were written to the app log."
+            }
+        }
     }
 
     fun undoPaid(row: BillRow) {
         val date = row.dueDate ?: return
-        scope.launch { repository.undoPaid(row.bill.id, date) }
+        scope.launch {
+            try {
+                repository.undoPaid(row.bill.id, date)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Throwable) {
+                logger.error("Undo-payment write failed for bill ${row.bill.id}", failure)
+                _errorMessage.value = "Couldn't undo the payment. Details were written to the app log."
+            }
+        }
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
     }
 
     fun close() {

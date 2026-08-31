@@ -9,6 +9,7 @@ All notable changes to this project are recorded here.
 - Sample bills are now limited to a genuine first run and cannot return after the ledger is emptied.
 - Quick pay now asks for the actual amount on variable bills instead of recording the saved estimate; fixed bills remain one click.
 - A second launch now activates the existing window and exits before opening another database connection.
+- Startup and write failures now appear in the app and are written to durable log files; corrupt databases open a recovery screen instead of killing the process.
 
 ## [0.1.0] - 2026-08-31
 

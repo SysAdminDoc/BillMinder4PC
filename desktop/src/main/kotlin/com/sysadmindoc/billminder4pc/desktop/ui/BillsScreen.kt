@@ -51,6 +51,7 @@ import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 @Composable
 fun BillsScreen(state: AppState) {
     val dashboard by state.dashboard.collectAsState()
+    val errorMessage by state.errorMessage.collectAsState()
     var variablePaymentRow by remember { mutableStateOf<BillRow?>(null) }
     var paymentAmountText by remember { mutableStateOf("") }
 
@@ -76,6 +77,30 @@ fun BillsScreen(state: AppState) {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            errorMessage?.let { message ->
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = CatRed.copy(alpha = 0.14f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                message,
+                                color = CatRed,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = state::clearError) {
+                                Text("Dismiss")
+                            }
+                        }
+                    }
+                }
+            }
             item { SummaryHeader(dashboard.totalDue, dashboard.paid.size, dashboard.rows.size, dashboard.overdue.size) }
 
             if (dashboard.overdue.isNotEmpty()) {

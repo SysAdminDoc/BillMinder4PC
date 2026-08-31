@@ -47,13 +47,6 @@ Things a phone app structurally cannot do. This is where the app stops being a p
 
 Added 2026-08-31 from the ecosystem research pass (details and sources in RESEARCH.md). Ordered by priority; these slot in alongside the blocks above rather than replacing them.
 
-- [ ] P0: **Error surfacing and file logging.** (Covers the "No logging yet" known issue.)
-  Why: a corrupt database kills the process with no dialog and no log, and a failed mark-paid vanishes inside `scope.launch`. The global error rule is toast plus log plus crash file, never silent.
-  Evidence: `Main.kt` opens the DB unguarded; `AppState.markPaid` swallows exceptions; `AppPaths.logFile` is defined and unused. Android ships a `DatabaseRecoveryScreen` for exactly this.
-  Touches: `Main.kt`, `AppState.kt`, `DatabaseFactory.kt`, a small logging util.
-  Acceptance: a deliberately corrupted database file at launch produces a recovery dialog and a log entry instead of a dead process; a failing write surfaces in the UI; `sqlite_version()` is logged at startup.
-  Complexity: M
-
 - [ ] P1: **Automatic rolling backups with restore.**
   Why: the category's recurring catastrophe is stranded bill history (Prism, return7's BillMinder, Mint); the single-file design is only a selling point when it is snapshotted and restorable.
   Evidence: Apple Community thread 255168571 ("I have lost all of my bill history now 3 times"); the Android roadmap plans the same.
@@ -167,4 +160,3 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
 - `AppPaths` has no portable-mode override yet, so the data directory is always under `%LOCALAPPDATA%`.
 - The ledger has no empty-state action. It tells you there are no bills but offers no way to add one.
 - Sidebar sections other than Bills are placeholders.
-- No logging yet. `AppPaths.logFile` is defined and unused.

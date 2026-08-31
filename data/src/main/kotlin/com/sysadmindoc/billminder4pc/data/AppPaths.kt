@@ -31,6 +31,8 @@ object AppPaths {
 
     val logFile: Path get() = dataDir.resolve("billminder4pc.log")
 
+    val crashLogFile: Path get() = dataDir.resolve("billminder4pc-crash.log")
+
     private fun resolveDataDir(): Path {
         System.getProperty(DATA_DIR_PROPERTY)?.takeIf { it.isNotBlank() }?.let {
             return Paths.get(it)

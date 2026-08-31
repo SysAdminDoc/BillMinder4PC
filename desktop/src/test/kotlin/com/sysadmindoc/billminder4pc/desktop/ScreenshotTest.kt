@@ -5,6 +5,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
+import com.sysadmindoc.billminder4pc.data.AppLogger
+import com.sysadmindoc.billminder4pc.data.BillDatabase
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
@@ -116,9 +118,59 @@ class ScreenshotTest {
         }
     }
 
+    @Test
+    fun `startup recovery screen renders without a database`() {
+        val scene = ImageComposeScene(width = 760, height = 520, density = Density(1f)) {
+            BillMinderTheme {
+                StartupRecoveryScreen(
+                    failureMessage = "File is not a database",
+                    dataDirectory = "C:\\Users\\Example\\AppData\\Local\\BillMinder4PC",
+                    logFile = "C:\\Users\\Example\\AppData\\Local\\BillMinder4PC\\billminder4pc.log",
+                    onOpenDataFolder = {},
+                    onClose = {}
+                )
+            }
+        }
+        try {
+            val data = requireNotNull(scene.render().encodeToData(EncodedImageFormat.PNG)) {
+                "Skia returned no PNG data for the recovery screen"
+            }
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, "startup-recovery.png")
+            file.writeBytes(data.bytes)
+            assertTrue("recovery screenshot should not be empty", file.length() > 5_000)
+        } finally {
+            scene.close()
+        }
+    }
+
+    @Test
+    fun `failed write renders an in-app error banner`() = runBlocking {
+        val fixture = seededFixture("write-error-state")
+        val spotify = fixture.dashboard.rows.single { it.bill.name == "Spotify" }
+        try {
+            fixture.database.close()
+            fixture.state.markPaid(spotify)
+            withTimeout(5_000) { fixture.state.errorMessage.first { it != null } }
+
+            val data = requireNotNull(fixture.scene.render().encodeToData(EncodedImageFormat.PNG)) {
+                "Skia returned no PNG data for the write error"
+            }
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, "write-error.png")
+            file.writeBytes(data.bytes)
+            assertTrue("write error screenshot should not be empty", file.length() > 5_000)
+        } finally {
+            fixture.close()
+        }
+    }
+
     private suspend fun seededFixture(folder: String): SceneFixture {
         val db = DatabaseFactory.openInMemory()
-        val markerFile = temporaryFolder.newFolder(folder).toPath().resolve("sample-data-initialized")
+        val directory = temporaryFolder.newFolder(folder).toPath()
+        val markerFile = directory.resolve("sample-data-initialized")
         val today = LocalDate.of(2026, 8, 31)
         SampleData.seedIfFirstRun(
             db,
@@ -131,7 +183,8 @@ class ScreenshotTest {
             db = db,
             zone = zone,
             clock = Clock.fixed(Instant.parse("2026-08-31T12:00:00Z"), zone),
-            dayChangeSignals = emptyFlow()
+            dayChangeSignals = emptyFlow(),
+            logger = AppLogger(directory.resolve("app.log"), directory.resolve("crash.log"))
         )
 
         // collectAsState reads the StateFlow's current value, so the data has to land before the
@@ -140,13 +193,14 @@ class ScreenshotTest {
         val scene = ImageComposeScene(width = 1120, height = 760, density = Density(1f)) {
             BillMinderTheme { App(state) }
         }
-        return SceneFixture(state, dashboard, scene)
+        return SceneFixture(state, dashboard, scene, db)
     }
 
     private data class SceneFixture(
         val state: AppState,
         val dashboard: Dashboard,
-        val scene: ImageComposeScene
+        val scene: ImageComposeScene,
+        val database: BillDatabase
     ) : AutoCloseable {
         override fun close() {
             scene.close()

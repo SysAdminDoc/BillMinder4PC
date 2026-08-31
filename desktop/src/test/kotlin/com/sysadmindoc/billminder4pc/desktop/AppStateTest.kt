@@ -2,6 +2,7 @@ package com.sysadmindoc.billminder4pc.desktop
 
 import com.sysadmindoc.billminder4pc.core.model.Bill
 import com.sysadmindoc.billminder4pc.core.model.Recurrence
+import com.sysadmindoc.billminder4pc.data.AppLogger
 import com.sysadmindoc.billminder4pc.data.BillRepository
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -10,13 +11,20 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.nio.file.Files
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
 class AppStateTest {
+
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
 
     private val zone = ZoneId.of("UTC")
 
@@ -92,6 +100,43 @@ class AppStateTest {
                 state.repository.observePayments().first { it.isNotEmpty() }.single()
             }
             assertEquals(127.31, payment.amount, 0.001)
+        } finally {
+            state.close()
+        }
+    }
+
+    @Test
+    fun `failed payment write reaches the UI state and log`() = runBlocking {
+        val dueDate = LocalDate.of(2026, 9, 1)
+        val directory = temporaryFolder.newFolder("write-failure").toPath()
+        val logFile = directory.resolve("app.log")
+        val db = DatabaseFactory.openInMemory()
+        val repository = BillRepository(db)
+        repository.addBill(
+            Bill(
+                name = "Rent",
+                amount = 1_450.0,
+                dueDay = dueDate.dayOfMonth,
+                recurrence = Recurrence.MONTHLY,
+                anchorEpochDay = dueDate.toEpochDay()
+            )
+        )
+        val state = AppState(
+            db = db,
+            zone = zone,
+            clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), zone),
+            dayChangeSignals = emptyFlow(),
+            logger = AppLogger(logFile, directory.resolve("crash.log"))
+        )
+
+        try {
+            val row = withTimeout(5_000) { state.dashboard.first { it.loaded }.rows.single() }
+            db.close()
+            state.markPaid(row)
+
+            val message = withTimeout(5_000) { state.errorMessage.first { it != null } }
+            assertEquals("Couldn't record the payment. Details were written to the app log.", message)
+            assertTrue(Files.readString(logFile).contains("Mark-paid write failed"))
         } finally {
             state.close()
         }
