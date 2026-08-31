@@ -16,7 +16,7 @@ This is the desktop companion to [BillMinder for Android](https://github.com/Sys
 
 ## Status
 
-Early. Version 0.1.0 is a working scaffold: the recurrence engine is ported and passing its full test suite, the database layer runs on Room 3 with a bundled SQLite build, and the ledger view reads and writes live data. The reminder system, the calendar, and the insights pages aren't built yet. See [ROADMAP.md](ROADMAP.md).
+Early. Version 0.1.0 is a working scaffold. The recurrence engine is ported and passing its full test suite, the database layer runs on Room 3 with a bundled SQLite build, and the ledger view reads and writes live data. Closing the window now keeps BillMinder running in the Windows tray. The reminder system isn't built yet. Neither are the calendar or insights pages. See [ROADMAP.md](ROADMAP.md).
 
 ![The bills view](docs/screenshots/v0.1.0/bills.png)
 
@@ -27,10 +27,12 @@ Early. Version 0.1.0 is a working scaffold: the recurrence engine is ported and 
 - The recurrence engine from the Android app, anchor dates and all, with 27 tests covering it
 - A local database at `%LOCALAPPDATA%\BillMinder4PC\billminder.db`
 - Sample bills on first run so a fresh install isn't an empty screen
+- A Windows tray badge with the due count and a tooltip showing today's bills
+- Tray quick pay for the next fixed bill, with the amount form preserved for variable bills
 
 ## What's coming
 
-The reminder layer is the point of the whole thing, so it's next. Windows toast notifications with Mark Paid and Snooze buttons, fired from a tray-resident process that keeps working when the window is closed.
+The reminder layer is the point of the whole thing, so it's next. Windows toast notifications will add Mark Paid and Snooze buttons to the tray-resident process.
 
 After that: a month calendar that shows bills inside the day cells rather than as dots, cash-flow projection, keyboard-driven entry, bulk edit, printable statements, OFX and QFX import, and an ICS feed you can subscribe to from Outlook. Sync with the phone over your own network, with no cloud account, is the longer-term goal.
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -96,6 +97,82 @@ class AppStateTest {
             val row = withTimeout(5_000) { state.dashboard.first { it.loaded }.rows.single() }
             state.markPaid(row, amount = 127.31)
 
+            val payment = withTimeout(5_000) {
+                state.repository.observePayments().first { it.isNotEmpty() }.single()
+            }
+            assertEquals(127.31, payment.amount, 0.001)
+        } finally {
+            state.close()
+        }
+    }
+
+    @Test
+    fun `quick pay records a fixed bill without opening the amount prompt`() = runBlocking {
+        val dueDate = LocalDate.of(2026, 9, 1)
+        val db = DatabaseFactory.openInMemory()
+        val repository = BillRepository(db)
+        repository.addBill(
+            Bill(
+                name = "Rent",
+                amount = 1_450.0,
+                dueDay = dueDate.dayOfMonth,
+                recurrence = Recurrence.MONTHLY,
+                anchorEpochDay = dueDate.toEpochDay()
+            )
+        )
+        val state = AppState(
+            db = db,
+            zone = zone,
+            clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), zone),
+            dayChangeSignals = emptyFlow()
+        )
+
+        try {
+            val row = withTimeout(5_000) { state.dashboard.first { it.loaded }.rows.single() }
+
+            assertEquals(QuickPayResult.PAYMENT_STARTED, state.requestQuickPay(row))
+            assertNull(state.paymentPromptRow.value)
+
+            val payment = withTimeout(5_000) {
+                state.repository.observePayments().first { it.isNotEmpty() }.single()
+            }
+            assertEquals(1_450.0, payment.amount, 0.001)
+        } finally {
+            state.close()
+        }
+    }
+
+    @Test
+    fun `quick pay asks for the exact amount before recording a variable bill`() = runBlocking {
+        val dueDate = LocalDate.of(2026, 9, 1)
+        val db = DatabaseFactory.openInMemory()
+        val repository = BillRepository(db)
+        repository.addBill(
+            Bill(
+                name = "Electric",
+                amount = 138.42,
+                dueDay = dueDate.dayOfMonth,
+                recurrence = Recurrence.MONTHLY,
+                isVariableAmount = true,
+                anchorEpochDay = dueDate.toEpochDay()
+            )
+        )
+        val state = AppState(
+            db = db,
+            zone = zone,
+            clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), zone),
+            dayChangeSignals = emptyFlow()
+        )
+
+        try {
+            val row = withTimeout(5_000) { state.dashboard.first { it.loaded }.rows.single() }
+
+            assertEquals(QuickPayResult.AMOUNT_REQUIRED, state.requestQuickPay(row))
+            assertEquals(row, state.paymentPromptRow.value)
+            assertTrue(state.repository.observePayments().first().isEmpty())
+
+            state.submitPayment(row, 127.31)
+            assertNull(state.paymentPromptRow.value)
             val payment = withTimeout(5_000) {
                 state.repository.observePayments().first { it.isNotEmpty() }.single()
             }

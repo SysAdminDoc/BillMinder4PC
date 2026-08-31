@@ -1,6 +1,7 @@
 package com.sysadmindoc.billminder4pc.desktop
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -8,7 +9,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.isTraySupported
 import androidx.compose.ui.window.rememberWindowState
 import com.sysadmindoc.billminder4pc.data.AppLogger
 import com.sysadmindoc.billminder4pc.data.AppPaths
@@ -108,12 +111,21 @@ fun main() {
             var windowVisible by remember { mutableStateOf(true) }
             var activationSequence by remember { mutableStateOf(0L) }
             val windowState = rememberWindowState(size = DpSize(1120.dp, 760.dp))
+            val dashboard by state.dashboard.collectAsState()
+            val trayPresentation = remember(dashboard) { dashboard.toTrayPresentation() }
+            val trayIcon = remember(trayPresentation.dueCount) {
+                TrayBadgeIcon.painter(trayPresentation.dueCount)
+            }
+
+            fun showWindow() {
+                windowVisible = true
+                windowState.isMinimized = false
+                activationSequence++
+            }
 
             LaunchedEffect(instanceGuard) {
                 instanceGuard.activationRequests.collect {
-                    windowVisible = true
-                    windowState.isMinimized = false
-                    activationSequence++
+                    showWindow()
                 }
             }
             // Compose issue 4231 requires this AWT foreground request outside the Window content.
@@ -124,8 +136,39 @@ fun main() {
                 }
             }
 
+            if (isTraySupported) {
+                Tray(
+                    icon = trayIcon,
+                    tooltip = trayPresentation.tooltip,
+                    onAction = ::showWindow
+                ) {
+                    Item("Show BillMinder", onClick = ::showWindow)
+                    Separator()
+                    val nextBill = trayPresentation.nextBill
+                    Item(
+                        text = when {
+                            nextBill == null -> "No unpaid bills"
+                            nextBill.bill.isVariableAmount -> "Record ${nextBill.bill.name} payment..."
+                            else -> "Mark ${nextBill.bill.name} paid"
+                        },
+                        enabled = nextBill != null,
+                        onClick = {
+                            if (nextBill != null &&
+                                state.requestQuickPay(nextBill) == QuickPayResult.AMOUNT_REQUIRED
+                            ) {
+                                showWindow()
+                            }
+                        }
+                    )
+                    Separator()
+                    Item("Exit", onClick = ::exitApplication)
+                }
+            }
+
             Window(
-                onCloseRequest = ::exitApplication,
+                onCloseRequest = {
+                    if (isTraySupported) windowVisible = false else exitApplication()
+                },
                 visible = windowVisible,
                 title = "BillMinder for PC",
                 state = windowState

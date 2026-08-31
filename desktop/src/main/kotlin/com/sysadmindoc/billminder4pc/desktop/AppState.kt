@@ -56,6 +56,12 @@ data class Dashboard(
     val loaded: Boolean = false
 )
 
+enum class QuickPayResult {
+    PAYMENT_STARTED,
+    AMOUNT_REQUIRED,
+    IGNORED
+}
+
 /**
  * Owns the database and turns it into the one state object the UI renders. Held for the lifetime
  * of the process rather than recreated per window, so opening a second window is cheap.
@@ -73,6 +79,9 @@ class AppState(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _paymentPromptRow = MutableStateFlow<BillRow?>(null)
+    val paymentPromptRow: StateFlow<BillRow?> = _paymentPromptRow.asStateFlow()
 
     private val currentDay = dayChangeSignals
         .onStart { emit(Unit) }
@@ -130,6 +139,26 @@ class AppState(
                 _errorMessage.value = "Couldn't record the payment. Details were written to the app log."
             }
         }
+    }
+
+    fun requestQuickPay(row: BillRow): QuickPayResult {
+        if (row.isPaid || row.dueDate == null) return QuickPayResult.IGNORED
+        if (row.bill.isVariableAmount) {
+            _paymentPromptRow.value = row
+            return QuickPayResult.AMOUNT_REQUIRED
+        }
+        markPaid(row)
+        return QuickPayResult.PAYMENT_STARTED
+    }
+
+    fun submitPayment(row: BillRow, amount: Double) {
+        if (!amount.isFinite() || amount <= 0.0) return
+        _paymentPromptRow.value = null
+        markPaid(row, amount)
+    }
+
+    fun dismissPaymentPrompt() {
+        _paymentPromptRow.value = null
     }
 
     fun undoPaid(row: BillRow) {

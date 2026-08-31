@@ -10,6 +10,8 @@ All notable changes to this project are recorded here.
 - Quick pay now asks for the actual amount on variable bills instead of recording the saved estimate; fixed bills remain one click.
 - A second launch now activates the existing window and exits before opening another database connection.
 - Startup and write failures now appear in the app and are written to durable log files; corrupt databases open a recovery screen instead of killing the process.
+- Closing the main window now keeps BillMinder in the Windows tray. The tray shows the actionable due count, lists today's bills, restores the window, and can settle the next fixed bill.
+- Tray quick pay opens the existing exact-amount panel for a variable bill instead of recording its estimate.
 
 ## [0.1.0] - 2026-08-31
 

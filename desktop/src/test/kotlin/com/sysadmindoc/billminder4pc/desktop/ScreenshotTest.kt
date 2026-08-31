@@ -1,10 +1,18 @@
 package com.sysadmindoc.billminder4pc.desktop
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.sysadmindoc.billminder4pc.data.AppLogger
 import com.sysadmindoc.billminder4pc.data.BillDatabase
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
@@ -164,6 +172,34 @@ class ScreenshotTest {
             assertTrue("write error screenshot should not be empty", file.length() > 5_000)
         } finally {
             fixture.close()
+        }
+    }
+
+    @Test
+    fun `tray due-count badge renders offscreen`() {
+        val scene = ImageComposeScene(width = 128, height = 128, density = Density(1f)) {
+            Box(
+                modifier = androidx.compose.ui.Modifier.fillMaxSize().background(Color(0xFF020814)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = TrayBadgeIcon.painter(12),
+                    contentDescription = "12 bills due",
+                    modifier = androidx.compose.ui.Modifier.size(64.dp)
+                )
+            }
+        }
+        try {
+            val data = requireNotNull(scene.render().encodeToData(EncodedImageFormat.PNG)) {
+                "Skia returned no PNG data for the tray badge"
+            }
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, "tray-badge.png")
+            file.writeBytes(data.bytes)
+            assertTrue("tray badge screenshot should not be empty", file.length() > 1_000)
+        } finally {
+            scene.close()
         }
     }
 

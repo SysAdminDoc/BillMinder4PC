@@ -52,23 +52,13 @@ import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 fun BillsScreen(state: AppState) {
     val dashboard by state.dashboard.collectAsState()
     val errorMessage by state.errorMessage.collectAsState()
-    var variablePaymentRow by remember { mutableStateOf<BillRow?>(null) }
-    var paymentAmountText by remember { mutableStateOf("") }
+    val variablePaymentRow by state.paymentPromptRow.collectAsState()
 
     if (!dashboard.loaded) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Loading", color = CatSubtext0, style = MaterialTheme.typography.bodyLarge)
         }
         return
-    }
-
-    fun quickPay(row: BillRow) {
-        if (row.bill.isVariableAmount) {
-            variablePaymentRow = row
-            paymentAmountText = row.bill.amount.toString()
-        } else {
-            state.markPaid(row)
-        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -106,19 +96,19 @@ fun BillsScreen(state: AppState) {
             if (dashboard.overdue.isNotEmpty()) {
                 item { SectionHeading("Needs attention", dashboard.overdue.size, CatRed) }
                 items(dashboard.overdue, key = { it.bill.id }) {
-                    BillCard(it, dashboard.asOfDate, onMarkPaid = ::quickPay, onUndoPaid = state::undoPaid)
+                    BillCard(it, dashboard.asOfDate, onMarkPaid = state::requestQuickPay, onUndoPaid = state::undoPaid)
                 }
             }
             if (dashboard.upcoming.isNotEmpty()) {
                 item { SectionHeading("Coming up", dashboard.upcoming.size, MaterialTheme.colorScheme.primary) }
                 items(dashboard.upcoming, key = { it.bill.id }) {
-                    BillCard(it, dashboard.asOfDate, onMarkPaid = ::quickPay, onUndoPaid = state::undoPaid)
+                    BillCard(it, dashboard.asOfDate, onMarkPaid = state::requestQuickPay, onUndoPaid = state::undoPaid)
                 }
             }
             if (dashboard.paid.isNotEmpty()) {
                 item { SectionHeading("Paid", dashboard.paid.size, CatGreen) }
                 items(dashboard.paid, key = { it.bill.id }) {
-                    BillCard(it, dashboard.asOfDate, onMarkPaid = ::quickPay, onUndoPaid = state::undoPaid)
+                    BillCard(it, dashboard.asOfDate, onMarkPaid = state::requestQuickPay, onUndoPaid = state::undoPaid)
                 }
             }
             if (dashboard.rows.isEmpty()) {
@@ -134,13 +124,14 @@ fun BillsScreen(state: AppState) {
         }
 
         variablePaymentRow?.let { row ->
+            var paymentAmountText by remember(row.bill.id) { mutableStateOf(row.bill.amount.toString()) }
             val amount = paymentAmountText.trim().replace(',', '.').toDoubleOrNull()
                 ?.takeIf { it.isFinite() && it > 0.0 }
             Box(
                 modifier = Modifier.fillMaxSize()
                     .background(CatCrust.copy(alpha = 0.82f))
                     .pointerInput(row.bill.id) {
-                        detectTapGestures { variablePaymentRow = null }
+                        detectTapGestures { state.dismissPaymentPrompt() }
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -178,15 +169,14 @@ fun BillsScreen(state: AppState) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End
                         ) {
-                            TextButton(onClick = { variablePaymentRow = null }) {
+                            TextButton(onClick = state::dismissPaymentPrompt) {
                                 Text("Cancel")
                             }
                             Spacer(Modifier.width(8.dp))
                             TextButton(
                                 enabled = amount != null,
                                 onClick = {
-                                    state.markPaid(row, requireNotNull(amount))
-                                    variablePaymentRow = null
+                                    state.submitPayment(row, requireNotNull(amount))
                                 }
                             ) {
                                 Text("Record payment")
