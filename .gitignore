@@ -7,6 +7,7 @@ local.properties
 # Working notes, not documentation
 CLAUDE.md
 CODEX_CHANGELOG.md
+RESEARCH.md
 .claude/
 
 # IDE
