@@ -20,6 +20,8 @@ object AppPaths {
 
     val databaseFile: Path get() = dataDir.resolve("billminder.db")
 
+    val sampleDataMarker: Path get() = dataDir.resolve("sample-data-initialized")
+
     val attachmentsDir: Path
         get() = dataDir.resolve("attachments").also { Files.createDirectories(it) }
 

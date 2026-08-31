@@ -10,14 +10,16 @@ import com.sysadmindoc.billminder4pc.data.DatabaseFactory
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
 import kotlinx.coroutines.runBlocking
+import java.nio.file.Files
 
 const val APP_VERSION = "0.1.0"
 
 fun main() {
     // Opened before the composition starts, so the window never renders against a half-built
     // database and the process owns exactly one connection pool.
+    val databaseExistedAtStartup = Files.exists(AppPaths.databaseFile)
     val db = DatabaseFactory.open()
-    runBlocking { SampleData.seedIfEmpty(db) }
+    runBlocking { SampleData.seedIfFirstRun(db, databaseExistedAtStartup) }
     val state = AppState(db)
 
     println("BillMinder for PC $APP_VERSION, data directory ${AppPaths.dataDir}")

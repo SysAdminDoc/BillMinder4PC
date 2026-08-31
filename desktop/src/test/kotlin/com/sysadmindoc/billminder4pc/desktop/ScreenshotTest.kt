@@ -10,7 +10,9 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import java.io.File
 
 /**
@@ -20,10 +22,14 @@ import java.io.File
  */
 class ScreenshotTest {
 
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
     @Test
     fun `the bills screen renders against a seeded database`() = runBlocking {
         val db = DatabaseFactory.openInMemory()
-        SampleData.seedIfEmpty(db)
+        val markerFile = temporaryFolder.newFolder("seed-state").toPath().resolve("sample-data-initialized")
+        SampleData.seedIfFirstRun(db, databaseExistedAtStartup = false, markerFile = markerFile)
         val state = AppState(db)
 
         // collectAsState reads the StateFlow's current value, so the data has to have landed

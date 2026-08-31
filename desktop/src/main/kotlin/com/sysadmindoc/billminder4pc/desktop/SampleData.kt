@@ -3,6 +3,7 @@ package com.sysadmindoc.billminder4pc.desktop
 import com.sysadmindoc.billminder4pc.core.model.Bill
 import com.sysadmindoc.billminder4pc.core.model.BillCategory
 import com.sysadmindoc.billminder4pc.core.model.Recurrence
+import com.sysadmindoc.billminder4pc.data.AppPaths
 import com.sysadmindoc.billminder4pc.data.BillDatabase
 import com.sysadmindoc.billminder4pc.data.BillRepository
 import com.sysadmindoc.billminder4pc.desktop.theme.CatBlue
@@ -12,20 +13,33 @@ import com.sysadmindoc.billminder4pc.desktop.theme.CatPeach
 import com.sysadmindoc.billminder4pc.desktop.theme.CatSapphire
 import com.sysadmindoc.billminder4pc.desktop.theme.CatYellow
 import androidx.compose.ui.graphics.toArgb
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.time.LocalDate
 
 /**
- * A first-run set of bills so a fresh install has something to look at. It only ever runs against
- * an empty database, so it cannot overwrite real data or reappear after the user deletes it.
+ * A first-run set of bills so a fresh install has something to look at. A durable marker records
+ * initialization separately from database contents, so deleting every bill cannot bring samples
+ * back on the next launch.
  */
 object SampleData {
 
-    suspend fun seedIfEmpty(db: BillDatabase) {
+    suspend fun seedIfFirstRun(
+        db: BillDatabase,
+        databaseExistedAtStartup: Boolean,
+        markerFile: Path = AppPaths.sampleDataMarker,
+        today: LocalDate = LocalDate.now()
+    ) {
+        if (Files.exists(markerFile)) return
+
         val dao = db.billDao()
-        if (dao.allBills().isNotEmpty()) return
+        if (databaseExistedAtStartup || dao.allBills().isNotEmpty()) {
+            writeMarker(markerFile)
+            return
+        }
 
         val repo = BillRepository(db)
-        val today = LocalDate.now()
 
         // Anchors are offsets from today rather than fixed days of the month, because a bill's
         // anchor is its first occurrence: anchoring everything earlier in the current month would
@@ -42,6 +56,19 @@ object SampleData {
         // One already settled, so a fresh install shows what a paid bill looks like.
         val insuranceId = repo.addBill(insurance)
         repo.bill(insuranceId)?.let { repo.markPaid(it, today.minusDays(2)) }
+
+        writeMarker(markerFile)
+    }
+
+    private fun writeMarker(markerFile: Path) {
+        markerFile.parent?.let { Files.createDirectories(it) }
+        Files.writeString(
+            markerFile,
+            "Sample data initialized.\n",
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING,
+            StandardOpenOption.WRITE
+        )
     }
 
     private fun bill(

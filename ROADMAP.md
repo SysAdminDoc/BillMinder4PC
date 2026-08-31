@@ -61,13 +61,6 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: a deliberately corrupted database file at launch produces a recovery dialog and a log entry instead of a dead process; a failing write surfaces in the UI; `sqlite_version()` is logged at startup.
   Complexity: M
 
-- [ ] P0: **First-run marker so sample data cannot return.**
-  Why: the seed guard is database emptiness, so a user who deletes every bill gets the six samples back on next launch. The code comment claims the opposite.
-  Evidence: `SampleData.kt:25`.
-  Touches: `SampleData.kt`, a marker file under `AppPaths` or a meta table.
-  Acceptance: delete all bills, relaunch, ledger stays empty; a genuinely fresh data directory still seeds.
-  Complexity: S
-
 - [ ] P0: **Ask the amount when quick-paying a variable bill.**
   Why: the ledger's one-click check writes the estimated amount into payment history for variable bills, which corrupts the exact record the app exists to keep. TimelyBills' broken mark-paid is its top review complaint.
   Evidence: `BillRepository.markPaid` defaults `amount = bill.amount`; trustpilot.com/review/timelybills.app.

@@ -6,6 +6,7 @@ All notable changes to this project are recorded here.
 
 ### Fixed
 - The open ledger now rolls over at midnight without waiting for a database change, so due groups and relative dates stay current overnight.
+- Sample bills are now limited to a genuine first run and cannot return after the ledger is emptied.
 
 ## [0.1.0] - 2026-08-31
 
