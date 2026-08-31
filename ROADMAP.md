@@ -47,13 +47,6 @@ Things a phone app structurally cannot do. This is where the app stops being a p
 
 Added 2026-08-31 from the ecosystem research pass (details and sources in RESEARCH.md). Ordered by priority; these slot in alongside the blocks above rather than replacing them.
 
-- [ ] P0: **Single-instance guard.**
-  Why: two launches are two processes on one database file today, and duplicate tray icons plus double toasts the moment tray residency lands. Must precede the tray work.
-  Evidence: `Main.kt` takes no lock; standard desktop convention.
-  Touches: `Main.kt`, `AppPaths` (lock file or localhost socket).
-  Acceptance: a second launch exits after bringing the first instance's window to front, including the known toFront-from-tray workaround (compose-multiplatform #4231).
-  Complexity: S
-
 - [ ] P0: **Error surfacing and file logging.** (Covers the "No logging yet" known issue.)
   Why: a corrupt database kills the process with no dialog and no log, and a failed mark-paid vanishes inside `scope.launch`. The global error rule is toast plus log plus crash file, never silent.
   Evidence: `Main.kt` opens the DB unguarded; `AppState.markPaid` swallows exceptions; `AppPaths.logFile` is defined and unused. Android ships a `DatabaseRecoveryScreen` for exactly this.

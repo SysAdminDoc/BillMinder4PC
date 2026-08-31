@@ -8,6 +8,7 @@ All notable changes to this project are recorded here.
 - The open ledger now rolls over at midnight without waiting for a database change, so due groups and relative dates stay current overnight.
 - Sample bills are now limited to a genuine first run and cannot return after the ledger is emptied.
 - Quick pay now asks for the actual amount on variable bills instead of recording the saved estimate; fixed bills remain one click.
+- A second launch now activates the existing window and exits before opening another database connection.
 
 ## [0.1.0] - 2026-08-31
 

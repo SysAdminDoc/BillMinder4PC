@@ -22,6 +22,10 @@ object AppPaths {
 
     val sampleDataMarker: Path get() = dataDir.resolve("sample-data-initialized")
 
+    val instanceLockFile: Path get() = dataDir.resolve("billminder4pc.lock")
+
+    val instanceEndpointFile: Path get() = dataDir.resolve("billminder4pc.endpoint")
+
     val attachmentsDir: Path
         get() = dataDir.resolve("attachments").also { Files.createDirectories(it) }
 
