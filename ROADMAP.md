@@ -2,7 +2,7 @@
 
 Single task tracker for BillMinder for PC. Items are ordered by priority within each block.
 
-## P0 — The reminder layer
+## P0: The reminder layer
 
 Without this the app is a spreadsheet with a nice theme. This is the product.
 
@@ -10,16 +10,16 @@ Without this the app is a spreadsheet with a nice theme. This is the product.
 - [ ] **Launch at logon.** Task Scheduler registration so reminders fire whether or not the app was opened. Register with battery flags off and `WakeToRun` on, otherwise Modern Standby silently defers the task with no missed-run catch-up.
 - [ ] **Escalation.** Cascading reminders at 4 hours, 24 hours, and overdue, matching the Android behaviour. Note: the Android cascade is dismissal-triggered, and both follow-ups abort if the cycle was paid or changed in the meantime.
 
-## P1 — Finish the core surfaces
+## P1: Finish the core surfaces
 
-- [ ] **Add and edit bill.** Form covering every field the model already carries: category, recurrence, variable amounts, tags, currency, payment URL, split payees.
+- [ ] **Add and edit bill.** A basic monthly add form landed in v0.2.0. Editing and advanced fields remain: recurrence, variable amounts, tags, currency, payment URL, and split payees.
 - [ ] **Bill detail.** Payment history, lifetime spend, next occurrences, and the mark-paid dialog with custom amount and confirmation number.
-- [ ] **Calendar page.** Full month grid with bills rendered inside the day cells, not as dots. A side agenda for the selected day. Year view.
-- [ ] **Insights page.** Spending by category, twelve-month cash-flow projection, and forecast. Port `CashFlowProjection` from the Android app once `CurrencyConverter` is ported alongside it.
-- [ ] **Settings page.** Reminder timing, startup behaviour, data folder, theme. Reminder timing should include the time of day (Wallos #905; Firefly's fixed offsets are a standing complaint there) plus a per-bill reminders overview (Wallos #983).
+- [ ] **Calendar page.** The month grid and selected-day payment strip landed in v0.2.0. A year view remains.
+- [ ] **Insights page.** Category spending, payment status, and a six-month outlook landed in v0.2.0. Extend this to twelve months and port `CashFlowProjection` with `CurrencyConverter`.
+- [ ] **Settings page.** Reminder time, due-day and overdue controls, tray behaviour, data folder, theme, and layout density landed in v0.2.0. Startup registration and the per-bill reminders overview remain.
 - [ ] **Search, sort, and category filter** across the ledger.
 
-## P2 — Earn the desktop
+## P2: Earn the desktop
 
 Things a phone app structurally cannot do. This is where the app stops being a port.
 
@@ -32,7 +32,7 @@ Things a phone app structurally cannot do. This is where the app stops being a p
 - [ ] **ICS feed.** A subscribable calendar of due dates that lands in Outlook or Google Calendar. Nobody in this space does it properly. ical4j 4.x, or hand-rolled RFC 5545, since feed generation is line-folded text.
 - [ ] **Multi-window.** Pop a bill's history out beside the ledger.
 
-## P3 — Sync and distribution
+## P3: Sync and distribution
 
 - [ ] **Phone to desktop sync over the local network.** QR pairing, no account and no cloud. Append-only change log with per-device IDs and last-writer-wins per field. This is the headline differentiator: Actual Budget needs a Docker sync server and Wallos needs a VPS. Discovery per the LocalSend protocol (UDP multicast announce, pinned self-signed TLS, certificate-fingerprint pairing). Skip cr-sqlite: the bundled SQLite driver cannot load extensions.
 - [ ] **App lock.** Windows Hello through the same sidecar as notifications, with a PIN fallback. Note the Android app's PIN hashing is flagged as too weak upstream, so do not port that part as-is.
@@ -126,7 +126,7 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Why: "BillMinder" was return7, Inc.'s registered iOS trademark in this exact category; the company is gone but the mark may not be.
   Evidence: Apple Community thread 255168571; return7 held the registration.
   Touches: nothing code-side unless a rename follows.
-  Acceptance: a TESS search result recorded in CLAUDE.md with a go or no-go decision before v1.0 publicity.
+  Acceptance: a TESS search result recorded in the local project notes with a go or no-go decision before v1.0 publicity.
   Complexity: S
 
 - [ ] P2: **Keyboard and screen-reader accessibility pass.**
@@ -138,7 +138,7 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
 
 - [ ] P3: **Flexible recurrence: every N units, last day of month, multiple days per month.** (Paired engine change with the Android app.)
   Why: the strongest recurrence demand across Actual and Wallos; the engine is deliberately identical on both platforms, so this is one shared change with one shared test vector.
-  Evidence: Actual schedules docs; Wallos #1143 (open); the CycleEngine port contract in CLAUDE.md.
+  Evidence: Actual schedules docs; Wallos #1143 (open); the CycleEngine port contract in the local project notes.
   Touches: `CycleEngine` in both repos plus both test suites, add/edit form.
   Acceptance: a last-day-of-month bill occurs correctly across February and leap years on both apps from a single shared test vector.
   Complexity: L
@@ -156,5 +156,5 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   `packageReleaseMsi` runs ProGuard and the `modules(...)` list in `desktop/build.gradle.kts` was
   written conservatively. Both are worth revisiting before the first release.
 - `AppPaths` has no portable-mode override yet, so the data directory is always under `%LOCALAPPDATA%`.
-- The ledger has no empty-state action. It tells you there are no bills but offers no way to add one.
-- Sidebar sections other than Bills are placeholders.
+- The add form covers the common monthly case, but edit and advanced bill fields still need their full surface.
+- Calendar year view and multi-currency forecast conversion aren't built yet.

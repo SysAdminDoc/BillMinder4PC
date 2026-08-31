@@ -25,6 +25,7 @@ import java.nio.file.Files
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -146,6 +147,30 @@ class ReminderSchedulerTest {
                 Instant.parse("2026-08-31T09:00:00Z"),
                 Instant.parse("2026-09-01T09:00:00Z"),
                 Instant.parse("2026-09-02T09:00:00Z")
+            ),
+            events.map { it.scheduledAt }
+        )
+    }
+
+    @Test
+    fun `reminder policy changes delivery time and can suppress overdue events`() {
+        val dueDate = LocalDate.of(2026, 9, 1)
+        val bill = bill(1, "Rent", dueDate).copy(secondReminderTiming = ReminderTiming.DAY_OF)
+
+        val events = reminderEventsBetween(
+            bills = listOf(bill),
+            payments = emptyList(),
+            startExclusive = Instant.parse("2026-08-31T16:59:00Z"),
+            endInclusive = Instant.parse("2026-09-02T17:01:00Z"),
+            zone = zone,
+            policy = ReminderPolicy(time = LocalTime.of(17, 0), includeOverdue = false)
+        )
+
+        assertEquals(listOf(ReminderKind.PRIMARY, ReminderKind.SECONDARY), events.map { it.kind })
+        assertEquals(
+            listOf(
+                Instant.parse("2026-08-31T17:00:00Z"),
+                Instant.parse("2026-09-01T17:00:00Z")
             ),
             events.map { it.scheduledAt }
         )

@@ -17,11 +17,12 @@ import com.sysadmindoc.billminder4pc.data.AppLogger
 import com.sysadmindoc.billminder4pc.data.AppPaths
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
+import com.sysadmindoc.billminder4pc.desktop.ui.Section
 import kotlinx.coroutines.runBlocking
 import java.awt.Desktop
 import javax.swing.SwingUtilities
 
-const val APP_VERSION = "0.1.0"
+const val APP_VERSION = "0.2.0"
 
 fun main() {
     val logger = AppLogger()
@@ -102,7 +103,11 @@ fun main() {
 
     val instanceGuard = requireNotNull(acquiredGuard)
     val db = requireNotNull(databaseResult).getOrThrow()
-    val state = AppState(db, logger = logger)
+    val state = AppState(
+        db = db,
+        preferencesStore = AppPreferencesStore(AppPaths.preferencesFile, logger),
+        logger = logger
+    )
 
     logger.info("BillMinder for PC $APP_VERSION; data directory ${AppPaths.dataDir}")
 
@@ -112,6 +117,7 @@ fun main() {
             var activationSequence by remember { mutableStateOf(0L) }
             val windowState = rememberWindowState(size = DpSize(1120.dp, 760.dp))
             val dashboard by state.dashboard.collectAsState()
+            val preferences by state.preferences.collectAsState()
             val trayPresentation = remember(dashboard) { dashboard.toTrayPresentation() }
             val trayIcon = remember(trayPresentation.dueCount) {
                 TrayBadgeIcon.painter(trayPresentation.dueCount)
@@ -145,7 +151,7 @@ fun main() {
                 }
             }
 
-            if (isTraySupported) {
+            if (isTraySupported && preferences.keepRunningInTray) {
                 Tray(
                     icon = trayIcon,
                     tooltip = trayPresentation.tooltip,
@@ -176,7 +182,11 @@ fun main() {
 
             Window(
                 onCloseRequest = {
-                    if (isTraySupported) windowVisible = false else exitApplication()
+                    if (isTraySupported && preferences.keepRunningInTray) {
+                        windowVisible = false
+                    } else {
+                        exitApplication()
+                    }
                 },
                 visible = windowVisible,
                 title = "BillMinder for PC",
@@ -191,8 +201,12 @@ fun main() {
                         }
                     }
                 }
-                BillMinderTheme {
-                    App(state)
+                BillMinderTheme(themeMode = preferences.themeMode) {
+                    App(
+                        state = state,
+                        initialSection = Section.entries.firstOrNull { it.name == preferences.launchSection }
+                            ?: Section.BILLS
+                    )
                 }
             }
         }

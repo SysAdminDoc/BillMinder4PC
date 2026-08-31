@@ -18,6 +18,7 @@ import com.sysadmindoc.billminder4pc.data.BillDatabase
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
+import com.sysadmindoc.billminder4pc.desktop.ui.Section
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.emptyFlow
@@ -46,7 +47,7 @@ class ScreenshotTest {
 
     @Test
     fun `the bills screen renders against a seeded database`() = runBlocking {
-        val fixture = seededFixture("seed-state")
+        val fixture = seededFixture("seed-state", Section.BILLS)
         assertTrue("sample data should have produced bills", fixture.dashboard.rows.isNotEmpty())
 
         val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
@@ -66,12 +67,92 @@ class ScreenshotTest {
     }
 
     @Test
+    fun `the calendar screen renders against a seeded database`() = runBlocking {
+        renderPage("calendar-state", Section.CALENDAR, "calendar.png")
+    }
+
+    @Test
+    fun `the insights screen renders against a seeded database`() = runBlocking {
+        renderPage("insights-state", Section.INSIGHTS, "insights.png")
+    }
+
+    @Test
+    fun `the settings screen renders against a seeded database`() = runBlocking {
+        renderPage("settings-state", Section.SETTINGS, "settings.png")
+    }
+
+    @Test
+    fun `the bills screen renders in the light theme`() = runBlocking {
+        val fixture = seededFixture("light-theme-state", Section.BILLS, ThemeMode.LIGHT)
+        try {
+            val data = requireNotNull(fixture.scene.render().encodeToData(EncodedImageFormat.PNG))
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, "bills-light.png")
+            file.writeBytes(data.bytes)
+            assertTrue("light theme screenshot should not be empty", file.length() > 5_000)
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
+    fun `add bill action opens the entry form`() = runBlocking {
+        val fixture = seededFixture("add-bill-state")
+        try {
+            fixture.scene.render().close()
+            fixture.scene.click(1040f, 42f)
+            val data = requireNotNull(fixture.scene.render().encodeToData(EncodedImageFormat.PNG))
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, "add-bill.png")
+            file.writeBytes(data.bytes)
+            assertTrue("add bill form screenshot should not be empty", file.length() > 5_000)
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
+    fun `calendar agenda settles the selected bill`() = runBlocking {
+        val fixture = seededFixture("calendar-pay-state", Section.CALENDAR)
+        val spotify = fixture.dashboard.rows.single { it.bill.name == "Spotify" }
+        try {
+            fixture.scene.render().close()
+            fixture.scene.click(1028f, 697f)
+            val payment = withTimeout(5_000) {
+                fixture.state.repository.observePayments().first { payments ->
+                    payments.any { it.billId == spotify.bill.id }
+                }.single { it.billId == spotify.bill.id }
+            }
+            assertEquals(spotify.bill.amount, payment.amount, 0.001)
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
+    fun `settings theme selection updates app preferences`() = runBlocking {
+        val fixture = seededFixture("settings-theme-state", Section.SETTINGS)
+        try {
+            fixture.scene.render().close()
+            fixture.scene.click(878f, 188f)
+            val selected = withTimeout(5_000) {
+                fixture.state.preferences.first { it.themeMode == ThemeMode.LIGHT }
+            }
+            assertEquals(ThemeMode.LIGHT, selected.themeMode)
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
     fun `variable bill quick pay renders an amount prompt`() = runBlocking {
         val fixture = seededFixture("variable-seed-state")
 
         try {
             fixture.scene.render().close()
-            val variableBillButton = Offset(1052f, 555f)
+            val variableBillButton = Offset(1025f, 568f)
             fixture.scene.sendPointerEvent(
                 eventType = PointerEventType.Press,
                 position = variableBillButton,
@@ -103,7 +184,7 @@ class ScreenshotTest {
 
         try {
             fixture.scene.render().close()
-            val fixedBillButton = Offset(1052f, 387f)
+            val fixedBillButton = Offset(1025f, 438f)
             fixture.scene.sendPointerEvent(
                 eventType = PointerEventType.Press,
                 position = fixedBillButton,
@@ -203,7 +284,41 @@ class ScreenshotTest {
         }
     }
 
-    private suspend fun seededFixture(folder: String): SceneFixture {
+    private suspend fun renderPage(folder: String, section: Section, fileName: String) {
+        val fixture = seededFixture(folder, section)
+        try {
+            val data = requireNotNull(fixture.scene.render().encodeToData(EncodedImageFormat.PNG)) {
+                "Skia returned no PNG data for $fileName"
+            }
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, fileName)
+            file.writeBytes(data.bytes)
+            assertTrue("$fileName should not be empty", file.length() > 5_000)
+            println("wrote ${file.absolutePath} (${file.length()} bytes)")
+        } finally {
+            fixture.close()
+        }
+    }
+
+    private fun ImageComposeScene.click(x: Float, y: Float) {
+        sendPointerEvent(
+            eventType = PointerEventType.Press,
+            position = Offset(x, y),
+            button = PointerButton.Primary
+        )
+        sendPointerEvent(
+            eventType = PointerEventType.Release,
+            position = Offset(x, y),
+            button = PointerButton.Primary
+        )
+    }
+
+    private suspend fun seededFixture(
+        folder: String,
+        section: Section = Section.BILLS,
+        themeMode: ThemeMode = ThemeMode.DARK
+    ): SceneFixture {
         val db = DatabaseFactory.openInMemory()
         val directory = temporaryFolder.newFolder(folder).toPath()
         val markerFile = directory.resolve("sample-data-initialized")
@@ -215,11 +330,15 @@ class ScreenshotTest {
             today = today
         )
         val zone = ZoneId.of("UTC")
+        val preferencesStore = AppPreferencesStore().also { store ->
+            store.update { it.copy(themeMode = themeMode) }.getOrThrow()
+        }
         val state = AppState(
             db = db,
             zone = zone,
             clock = Clock.fixed(Instant.parse("2026-08-31T12:00:00Z"), zone),
             dayChangeSignals = emptyFlow(),
+            preferencesStore = preferencesStore,
             logger = AppLogger(directory.resolve("app.log"), directory.resolve("crash.log"))
         )
 
@@ -227,7 +346,7 @@ class ScreenshotTest {
         // first frame or the render captures the loading placeholder.
         val dashboard = withTimeout(15_000) { state.dashboard.first { it.loaded } }
         val scene = ImageComposeScene(width = 1120, height = 760, density = Density(1f)) {
-            BillMinderTheme { App(state) }
+            BillMinderTheme(themeMode = themeMode) { App(state, initialSection = section) }
         }
         return SceneFixture(state, dashboard, scene, db)
     }

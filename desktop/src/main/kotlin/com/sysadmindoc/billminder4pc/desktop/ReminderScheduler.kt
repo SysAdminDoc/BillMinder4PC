@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.time.Clock
@@ -30,8 +31,12 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
-private const val REMINDER_HOUR = 9
 internal const val REMINDER_RECONCILE_INTERVAL_MILLIS = 15_000L
+
+data class ReminderPolicy(
+    val time: LocalTime = LocalTime.of(9, 0),
+    val includeOverdue: Boolean = true
+)
 
 enum class ReminderKind {
     PRIMARY,
@@ -65,7 +70,8 @@ internal fun reminderEventsBetween(
     payments: List<Payment>,
     startExclusive: Instant,
     endInclusive: Instant,
-    zone: ZoneId
+    zone: ZoneId,
+    policy: ReminderPolicy = ReminderPolicy()
 ): List<ReminderEvent> {
     if (!endInclusive.isAfter(startExclusive)) return emptyList()
 
@@ -97,7 +103,8 @@ internal fun reminderEventsBetween(
                             kind = ReminderKind.PRIMARY,
                             scheduledAt = reminderInstant(
                                 cycleDate.minusDays(bill.reminderTiming.days.toLong()),
-                                zone
+                                zone,
+                                policy.time
                             ),
                             daysBeforeDue = bill.reminderTiming.days
                         )
@@ -112,21 +119,24 @@ internal fun reminderEventsBetween(
                                     kind = ReminderKind.SECONDARY,
                                     scheduledAt = reminderInstant(
                                         cycleDate.minusDays(second.days.toLong()),
-                                        zone
+                                        zone,
+                                        policy.time
                                     ),
                                     daysBeforeDue = second.days
                                 )
                             )
                         }
-                    add(
-                        ReminderEvent(
-                            bill = bill,
-                            cycleDate = cycleDate,
-                            kind = ReminderKind.OVERDUE,
-                            scheduledAt = reminderInstant(cycleDate.plusDays(1), zone),
-                            daysBeforeDue = 0
+                    if (policy.includeOverdue) {
+                        add(
+                            ReminderEvent(
+                                bill = bill,
+                                cycleDate = cycleDate,
+                                kind = ReminderKind.OVERDUE,
+                                scheduledAt = reminderInstant(cycleDate.plusDays(1), zone, policy.time),
+                                daysBeforeDue = 0
+                            )
                         )
-                    )
+                    }
                 }.asSequence()
             }
         }
@@ -144,8 +154,8 @@ internal fun reminderEventsBetween(
         .toList()
 }
 
-private fun reminderInstant(date: LocalDate, zone: ZoneId): Instant =
-    date.atTime(LocalTime.of(REMINDER_HOUR, 0)).atZone(zone).toInstant()
+private fun reminderInstant(date: LocalDate, zone: ZoneId, time: LocalTime): Instant =
+    date.atTime(time).atZone(zone).toInstant()
 
 class ReminderScheduler(
     bills: Flow<List<Bill>>,
@@ -153,6 +163,7 @@ class ReminderScheduler(
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val clock: Clock = Clock.system(zone),
     timeSignals: Flow<Unit> = schedulerSignals(),
+    policy: Flow<ReminderPolicy> = flowOf(ReminderPolicy()),
     private val logger: AppLogger = AppLogger()
 ) : AutoCloseable {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -172,11 +183,12 @@ class ReminderScheduler(
                 combine(
                     bills,
                     payments,
-                    timeSignals.onStart { emit(Unit) }
-                ) { currentBills, currentPayments, _ ->
-                    currentBills to currentPayments
-                }.collect { (currentBills, currentPayments) ->
-                    reconcile(currentBills, currentPayments)
+                    timeSignals.onStart { emit(Unit) },
+                    policy
+                ) { currentBills, currentPayments, _, currentPolicy ->
+                    Triple(currentBills, currentPayments, currentPolicy)
+                }.collect { (currentBills, currentPayments, currentPolicy) ->
+                    reconcile(currentBills, currentPayments, currentPolicy)
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -186,7 +198,11 @@ class ReminderScheduler(
         }
     }
 
-    private suspend fun reconcile(bills: List<Bill>, payments: List<Payment>) {
+    private suspend fun reconcile(
+        bills: List<Bill>,
+        payments: List<Payment>,
+        policy: ReminderPolicy
+    ) {
         val now = clock.instant()
         val previous = _lastCheckedAt.value
         if (previous == null) {
@@ -205,7 +221,7 @@ class ReminderScheduler(
         }
         _lastCheckedAt.value = now
 
-        reminderEventsBetween(bills, payments, previous, now, zone).forEach { event ->
+        reminderEventsBetween(bills, payments, previous, now, zone, policy).forEach { event ->
             val id = ReminderEventId(event.bill.id, event.cycleDate, event.kind)
             if (delivered.add(id)) {
                 _events.emit(event)

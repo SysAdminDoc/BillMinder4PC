@@ -1,5 +1,6 @@
 package com.sysadmindoc.billminder4pc.desktop.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,21 +9,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,10 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sysadmindoc.billminder4pc.desktop.AppState
-import com.sysadmindoc.billminder4pc.desktop.theme.CatCrust
-import com.sysadmindoc.billminder4pc.desktop.theme.CatMantle
 
 enum class Section(val label: String, val icon: ImageVector) {
     BILLS("Bills", Icons.AutoMirrored.Filled.ReceiptLong),
@@ -44,18 +46,35 @@ enum class Section(val label: String, val icon: ImageVector) {
 }
 
 @Composable
-fun App(state: AppState) {
-    var section by remember { mutableStateOf(Section.BILLS) }
+fun App(
+    state: AppState,
+    initialSection: Section = Section.BILLS
+) {
+    var section by remember(initialSection) { mutableStateOf(initialSection) }
+    val errorMessage by state.errorMessage.collectAsState()
+    val noticeMessage by state.noticeMessage.collectAsState()
 
-    Surface(modifier = Modifier.fillMaxSize(), color = CatCrust) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Row(Modifier.fillMaxSize()) {
             Sidebar(current = section, onSelect = { section = it })
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when (section) {
                     Section.BILLS -> BillsScreen(state)
-                    Section.CALENDAR -> Placeholder("Calendar", "A full month grid with each day's bills shown in the cell, not as a dot.")
-                    Section.INSIGHTS -> Placeholder("Insights", "Spending by category, a twelve month cash-flow projection, and a year-end summary you can print.")
-                    Section.SETTINGS -> Placeholder("Settings", "Reminder timing, startup behaviour, the data folder, and import from BillMinder for Android.")
+                    Section.CALENDAR -> CalendarScreen(state)
+                    Section.INSIGHTS -> InsightsScreen(state)
+                    Section.SETTINGS -> SettingsScreen(state)
+                }
+
+                Column(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp).width(360.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    errorMessage?.let {
+                        MessageCard(it, error = true, onDismiss = state::clearError)
+                    }
+                    noticeMessage?.let {
+                        MessageCard(it, error = false, onDismiss = state::clearNotice)
+                    }
                 }
             }
         }
@@ -64,24 +83,61 @@ fun App(state: AppState) {
 
 @Composable
 private fun Sidebar(current: Section, onSelect: (Section) -> Unit) {
-    Column(
-        modifier = Modifier.width(216.dp).fillMaxHeight().background(CatMantle).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    val success = ledgerSuccessColor()
+    Surface(
+        modifier = Modifier.width(196.dp).fillMaxHeight(),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
     ) {
-        Text(
-            "BillMinder",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(start = 8.dp, top = 4.dp)
-        )
-        Text(
-            "for PC",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 8.dp, bottom = 20.dp)
-        )
-        Section.entries.forEach { entry ->
-            SidebarItem(entry, entry == current) { onSelect(entry) }
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                "BillMinder",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+            Text(
+                "for PC",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp, bottom = 22.dp)
+            )
+            Section.entries.forEach { entry ->
+                SidebarItem(entry, entry == current) { onSelect(entry) }
+            }
+
+            Spacer(Modifier.weight(1f))
+            Box(
+                Modifier.fillMaxWidth().height(1.dp)
+                    .background(MaterialTheme.colorScheme.outline)
+            )
+            Row(
+                modifier = Modifier.padding(start = 8.dp, top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = success,
+                    modifier = Modifier.size(17.dp)
+                )
+                Text(
+                    "All data is local",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                "Saved automatically",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 33.dp)
+            )
         }
     }
 }
@@ -91,35 +147,18 @@ private fun SidebarItem(section: Section, selected: Boolean, onClick: () -> Unit
     val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        color = if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
-        modifier = Modifier.height(38.dp)
+        shape = LedgerControlShape,
+        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)) else null,
+        modifier = Modifier.fillMaxWidth().height(46.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp).fillMaxHeight(),
+            modifier = Modifier.padding(horizontal = 12.dp).fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            Icon(section.icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+            Icon(section.icon, contentDescription = null, tint = tint, modifier = Modifier.size(19.dp))
             Text(section.label, style = MaterialTheme.typography.titleSmall, color = tint)
         }
-    }
-}
-
-@Composable
-private fun Placeholder(title: String, detail: String) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(40.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
-        Spacer(Modifier.height(10.dp))
-        Text(
-            detail,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(420.dp)
-        )
     }
 }

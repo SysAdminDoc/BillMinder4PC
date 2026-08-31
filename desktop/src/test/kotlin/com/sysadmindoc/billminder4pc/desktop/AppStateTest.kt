@@ -219,6 +219,41 @@ class AppStateTest {
         }
     }
 
+    @Test
+    fun `add bill writes the new row and reports success`() = runBlocking {
+        val dueDate = LocalDate.of(2026, 9, 18)
+        val db = DatabaseFactory.openInMemory()
+        val state = AppState(
+            db = db,
+            zone = zone,
+            clock = Clock.fixed(Instant.parse("2026-09-01T12:00:00Z"), zone),
+            dayChangeSignals = emptyFlow()
+        )
+
+        try {
+            withTimeout(5_000) { state.dashboard.first { it.loaded } }
+            state.addBill(
+                Bill(
+                    name = "Internet",
+                    amount = 74.99,
+                    dueDay = dueDate.dayOfMonth,
+                    recurrence = Recurrence.MONTHLY,
+                    anchorEpochDay = dueDate.toEpochDay()
+                )
+            )
+
+            val row = withTimeout(5_000) {
+                state.dashboard.first { dashboard ->
+                    dashboard.rows.any { it.bill.name == "Internet" }
+                }.rows.single { it.bill.name == "Internet" }
+            }
+            assertEquals(74.99, row.bill.amount, 0.001)
+            assertEquals("Internet was added.", state.noticeMessage.value)
+        } finally {
+            state.close()
+        }
+    }
+
     private class MutableClock(
         var currentInstant: Instant,
         private val zoneId: ZoneId

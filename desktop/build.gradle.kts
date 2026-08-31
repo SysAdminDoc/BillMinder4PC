@@ -29,7 +29,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "BillMinder4PC"
-            packageVersion = "0.1.0"
+            packageVersion = "0.2.0"
             description = "Bill tracking and reminders for Windows"
             copyright = "Copyright 2026 SysAdminDoc"
             vendor = "SysAdminDoc"

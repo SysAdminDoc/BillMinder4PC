@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-58A6FF?style=for-the-badge">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.0-58A6FF?style=for-the-badge">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-4ade80?style=for-the-badge">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-58A6FF?style=for-the-badge">
 </p>
@@ -16,13 +16,23 @@ This is the desktop companion to [BillMinder for Android](https://github.com/Sys
 
 ## Status
 
-Early. Version 0.1.0 is a working scaffold. The recurrence engine is ported and passing its full test suite. Room 3 runs the database on bundled SQLite, and the ledger reads and writes live data. Closing the window now keeps BillMinder running in the Windows tray. Reminder scheduling is in place, but Windows notification delivery isn't built yet. Neither are the calendar or insights pages. See [ROADMAP.md](ROADMAP.md).
+Version 0.2.0 is an early but usable desktop build. Bills, Calendar, Insights, and Settings all render live local data. The app can add bills, settle them from the ledger or calendar, remember appearance and reminder preferences, and export a local backup. Windows notification delivery isn't built yet, though the wall-clock scheduler already computes reminder events. See [ROADMAP.md](ROADMAP.md).
 
-![The bills view](docs/screenshots/v0.1.0/bills.png)
+![The bills view](docs/screenshots/v0.2.0/bills.png)
+
+| Calendar | Insights |
+| --- | --- |
+| ![The calendar view](docs/screenshots/v0.2.0/calendar.png) | ![The insights view](docs/screenshots/v0.2.0/insights.png) |
+
+![The settings view](docs/screenshots/v0.2.0/settings.png)
 
 ## What's here now
 
 - Bills grouped into what needs attention, what's coming up, and what's settled
+- A month calendar with bills inside each day and a selected-day payment action
+- Category totals, payment progress, and a six-month outlook
+- Reminder time, theme, density, launch-page, tray, and local-data controls
+- A basic monthly bill form plus local ZIP backups
 - One-click mark paid and undo, resolved against the correct billing cycle
 - The recurrence engine from the Android app, anchor dates and all, with 27 tests covering it
 - A local database at `%LOCALAPPDATA%\BillMinder4PC\billminder.db`
@@ -35,7 +45,7 @@ Early. Version 0.1.0 is a working scaffold. The recurrence engine is ported and 
 
 Windows toast notifications are next. They will add Mark Paid and Snooze buttons to the tray-resident process.
 
-After that: a month calendar that shows bills inside the day cells rather than as dots, cash-flow projection, keyboard-driven entry, bulk edit, printable statements, OFX and QFX import, and an ICS feed you can subscribe to from Outlook. Sync with the phone over your own network, with no cloud account, is the longer-term goal.
+The next app passes will expand bill editing, add the calendar year view, and extend the forecast. Keyboard-driven entry, printable statements, OFX and QFX import, and an Outlook-friendly ICS feed remain on the roadmap. Phone sync will use the local network with no cloud account.
 
 ## Building
 
@@ -49,7 +59,7 @@ You need JDK 21. Packaging needs JDK 17 or newer because it runs `jpackage`.
 
 Installers land in `desktop/build/compose/binaries/`.
 
-The screenshot in this README is generated, not captured by hand. `./gradlew :desktop:test` renders the UI offscreen through Skia and writes a PNG, which means it doubles as a smoke test that the whole screen composes against real database state.
+The screenshots in this README are generated, not captured by hand. `./gradlew :desktop:test` renders every page offscreen through Skia. The same test also exercises the main payment, add-bill, and settings controls against real database state.
 
 ## Layout
 

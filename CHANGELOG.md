@@ -4,8 +4,19 @@ All notable changes to this project are recorded here.
 
 ## Unreleased
 
+## [0.2.0] - 2026-08-31
+
 ### Added
+- A complete four-page desktop workspace. Calendar shows real occurrences inside the month grid, Insights summarizes live bill data, and Settings persists appearance and reminder preferences.
+- A basic monthly bill form from the Bills page, with category, first due date, amount, automatic-payment state, and the current reminder defaults.
+- Dark, light, and system appearance modes, plus compact-layout and launch-page preferences.
+- A local ZIP backup action and quick access to the app data folder.
+- Offscreen render coverage for every page, the add-bill form, calendar payment, theme selection, and the variable-payment form.
 - A 15-second wall-clock reminder scheduler now rebuilds events from current bill and payment data after sleep or clock changes. It emits the configured reminders once per unpaid cycle. Overdue checks use the same path.
+
+### Changed
+- The Bills page now follows a compact desktop ledger layout with a date column, payment status controls, a grouped attention row, and a three-part month summary.
+- Reminder time and the overdue policy now feed the live scheduler. Closing behavior follows the saved tray preference.
 
 ### Fixed
 - The open ledger now rolls over at midnight without waiting for a database change, so due groups and relative dates stay current overnight.

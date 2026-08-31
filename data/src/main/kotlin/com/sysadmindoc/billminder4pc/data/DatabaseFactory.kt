@@ -2,9 +2,11 @@ package com.sysadmindoc.billminder4pc.data
 
 import androidx.room3.Room
 import androidx.room3.useReaderConnection
+import androidx.room3.useWriterConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
 import java.nio.file.Path
+import java.nio.file.Files
 
 object DatabaseFactory {
 
@@ -32,4 +34,18 @@ object DatabaseFactory {
                 statement.getText(0)
             }
         }
+
+    /** Writes a transactionally consistent SQLite snapshot while the live database stays open. */
+    suspend fun exportSnapshot(db: BillDatabase, destination: Path): Path {
+        require(!Files.exists(destination)) { "Backup destination already exists: $destination" }
+        destination.parent?.let(Files::createDirectories)
+        db.useWriterConnection { connection ->
+            connection.usePrepared("VACUUM INTO ?") { statement ->
+                statement.bindText(1, destination.toAbsolutePath().toString())
+                statement.step()
+            }
+        }
+        check(Files.size(destination) > 0L) { "SQLite created an empty backup" }
+        return destination
+    }
 }
