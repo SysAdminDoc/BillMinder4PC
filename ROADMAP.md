@@ -45,6 +45,9 @@ Things a phone app structurally cannot do. This is where the app stops being a p
 
 ## Known issues
 
+- The MSI is 101 MB. That is a bundled JRE plus Skia, so some of it is unavoidable, but
+  `packageReleaseMsi` runs ProGuard and the `modules(...)` list in `desktop/build.gradle.kts` was
+  written conservatively. Both are worth revisiting before the first release.
 - `AppPaths` has no portable-mode override yet, so the data directory is always under `%LOCALAPPDATA%`.
 - The ledger has no empty-state action. It tells you there are no bills but offers no way to add one.
 - Sidebar sections other than Bills are placeholders.
