@@ -123,6 +123,15 @@ fun main() {
                 activationSequence++
             }
 
+            LaunchedEffect(state) {
+                state.reminderEvents.collect { event ->
+                    logger.info(
+                        "Reminder due for bill ${event.bill.id}, cycle ${event.cycleDate}, " +
+                            "kind ${event.kind}, scheduled ${event.scheduledAt}"
+                    )
+                }
+            }
+
             LaunchedEffect(instanceGuard) {
                 instanceGuard.activationRequests.collect {
                     showWindow()

@@ -4,6 +4,9 @@ All notable changes to this project are recorded here.
 
 ## Unreleased
 
+### Added
+- A 15-second wall-clock reminder scheduler now rebuilds events from current bill and payment data after sleep or clock changes. It emits the configured reminders once per unpaid cycle. Overdue checks use the same path.
+
 ### Fixed
 - The open ledger now rolls over at midnight without waiting for a database change, so due groups and relative dates stay current overnight.
 - Sample bills are now limited to a genuine first run and cannot return after the ledger is emptied.

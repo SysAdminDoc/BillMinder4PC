@@ -16,7 +16,7 @@ This is the desktop companion to [BillMinder for Android](https://github.com/Sys
 
 ## Status
 
-Early. Version 0.1.0 is a working scaffold. The recurrence engine is ported and passing its full test suite, the database layer runs on Room 3 with a bundled SQLite build, and the ledger view reads and writes live data. Closing the window now keeps BillMinder running in the Windows tray. The reminder system isn't built yet. Neither are the calendar or insights pages. See [ROADMAP.md](ROADMAP.md).
+Early. Version 0.1.0 is a working scaffold. The recurrence engine is ported and passing its full test suite. Room 3 runs the database on bundled SQLite, and the ledger reads and writes live data. Closing the window now keeps BillMinder running in the Windows tray. Reminder scheduling is in place, but Windows notification delivery isn't built yet. Neither are the calendar or insights pages. See [ROADMAP.md](ROADMAP.md).
 
 ![The bills view](docs/screenshots/v0.1.0/bills.png)
 
@@ -29,10 +29,11 @@ Early. Version 0.1.0 is a working scaffold. The recurrence engine is ported and 
 - Sample bills on first run so a fresh install isn't an empty screen
 - A Windows tray badge with the due count and a tooltip showing today's bills
 - Tray quick pay for the next fixed bill, with the amount form preserved for variable bills
+- A wall-clock reminder scheduler that catches events crossed while Windows was asleep
 
 ## What's coming
 
-The reminder layer is the point of the whole thing, so it's next. Windows toast notifications will add Mark Paid and Snooze buttons to the tray-resident process.
+Windows toast notifications are next. They will add Mark Paid and Snooze buttons to the tray-resident process.
 
 After that: a month calendar that shows bills inside the day cells rather than as dots, cash-flow projection, keyboard-driven entry, bulk edit, printable statements, OFX and QFX import, and an ICS feed you can subscribe to from Outlook. Sync with the phone over your own network, with no cloud account, is the longer-term goal.
 

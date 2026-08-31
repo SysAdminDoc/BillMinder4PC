@@ -71,6 +71,7 @@ class AppState(
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val clock: Clock = Clock.system(zone),
     dayChangeSignals: Flow<Unit> = minuteSignals(),
+    reminderTickSignals: Flow<Unit> = schedulerSignals(),
     private val logger: AppLogger = AppLogger()
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -92,6 +93,16 @@ class AppState(
         combine(repository.observeBills(), repository.observePayments(), currentDay) { bills, payments, today ->
             buildDashboard(bills, payments, today)
         }.stateIn(scope, SharingStarted.Eagerly, Dashboard())
+
+    private val reminderScheduler = ReminderScheduler(
+        bills = repository.observeBills(),
+        payments = repository.observePayments(),
+        zone = zone,
+        clock = clock,
+        timeSignals = reminderTickSignals,
+        logger = logger
+    )
+    val reminderEvents = reminderScheduler.events
 
     private fun buildDashboard(
         bills: List<Bill>,
@@ -180,6 +191,7 @@ class AppState(
     }
 
     fun close() {
+        reminderScheduler.close()
         scope.cancel()
         db.close()
     }
