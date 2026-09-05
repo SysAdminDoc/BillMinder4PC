@@ -16,7 +16,7 @@ This is the desktop companion to [BillMinder for Android](https://github.com/Sys
 
 ## Status
 
-Version 0.2.1 is an early but usable desktop build. Bills, Calendar, Insights, and Settings all render live local data. The app can add bills, settle them from the ledger or calendar, remember appearance and reminder preferences, and export a local backup. Windows notification delivery isn't built yet, though the wall-clock scheduler already computes reminder events. See [ROADMAP.md](ROADMAP.md).
+Version 0.2.1 is an early but usable desktop build. Bills, Calendar, Insights, and Settings all render live local data. The app can add bills, settle them from the ledger or calendar, remember appearance and reminder preferences, and export a local backup. Reminders now interrupt you: a due bill raises a tray balloon and a reminder pane you can pay, snooze, or dismiss. It isn't an Action Center toast yet. See [ROADMAP.md](ROADMAP.md).
 
 ![The bills view](docs/screenshots/v0.2.0/bills.png)
 
@@ -40,10 +40,12 @@ Version 0.2.1 is an early but usable desktop build. Bills, Calendar, Insights, a
 - A Windows tray badge with the due count and a tooltip showing today's bills
 - Tray quick pay for the next fixed bill, with the amount form preserved for variable bills
 - A wall-clock reminder scheduler that catches events crossed while Windows was asleep
+- Tray balloons and an always-on-top reminder pane with mark paid, snooze, and dismiss
+- Snoozes measured against the wall clock, so one taken before the machine sleeps fires on wake
 
 ## What's coming
 
-Windows toast notifications are next. They will add Mark Paid and Snooze buttons to the tray-resident process.
+Real Action Center toasts are next, so a reminder can be answered without the pane taking focus. That needs an AppUserModelID on the Start menu shortcut, which jpackage doesn't write, so it lands with the installer work.
 
 The next app passes will expand bill editing, add the calendar year view, and extend the forecast. Keyboard-driven entry, printable statements, OFX and QFX import, and an Outlook-friendly ICS feed remain on the roadmap. Phone sync will use the local network with no cloud account.
 

@@ -8,15 +8,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.isTraySupported
+import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import com.sysadmindoc.billminder4pc.data.AppLogger
 import com.sysadmindoc.billminder4pc.data.AppPaths
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
+import com.sysadmindoc.billminder4pc.desktop.ui.ReminderPane
 import com.sysadmindoc.billminder4pc.desktop.ui.Section
 import kotlinx.coroutines.runBlocking
 import java.awt.Desktop
@@ -122,6 +125,9 @@ fun main() {
             val trayIcon = remember(trayPresentation.dueCount) {
                 TrayBadgeIcon.painter(trayPresentation.dueCount)
             }
+            val trayState = rememberTrayState()
+            val currentAlert by state.reminderAlerts.current.collectAsState()
+            val pendingAlerts by state.reminderAlerts.pending.collectAsState()
 
             fun showWindow() {
                 windowVisible = true
@@ -130,10 +136,17 @@ fun main() {
             }
 
             LaunchedEffect(state) {
-                state.reminderEvents.collect { event ->
-                    logger.info(
-                        "Reminder due for bill ${event.bill.id}, cycle ${event.cycleDate}, " +
-                            "kind ${event.kind}, scheduled ${event.scheduledAt}"
+                state.alertBalloons.collect { alert ->
+                    trayState.sendNotification(
+                        Notification(
+                            title = alert.title(),
+                            message = alert.body(state.dashboard.value.asOfDate),
+                            type = if (alert.kind == ReminderKind.OVERDUE) {
+                                Notification.Type.Error
+                            } else {
+                                Notification.Type.Warning
+                            }
+                        )
                     )
                 }
             }
@@ -154,6 +167,7 @@ fun main() {
             if (isTraySupported && preferences.keepRunningInTray) {
                 Tray(
                     icon = trayIcon,
+                    state = trayState,
                     tooltip = trayPresentation.tooltip,
                     onAction = ::showWindow
                 ) {
@@ -177,6 +191,37 @@ fun main() {
                     )
                     Separator()
                     Item("Exit", onClick = ::exitApplication)
+                }
+            }
+
+            currentAlert?.let { alert ->
+                val reminderWindowState = rememberWindowState(size = DpSize(520.dp, 300.dp))
+                Window(
+                    onCloseRequest = { state.dismissAlert(alert) },
+                    title = "BillMinder reminder",
+                    state = reminderWindowState,
+                    alwaysOnTop = true,
+                    resizable = false
+                ) {
+                    BillMinderTheme(themeMode = preferences.themeMode) {
+                        ReminderPane(
+                            alert = alert,
+                            today = dashboard.asOfDate,
+                            billColor = dashboard.rows
+                                .firstOrNull { it.bill.id == alert.billId }
+                                ?.bill
+                                ?.color
+                                ?: 0xFF89B4FA,
+                            remaining = (pendingAlerts.size - 1).coerceAtLeast(0),
+                            onPay = {
+                                if (state.resolveAlert(alert) == QuickPayResult.AMOUNT_REQUIRED) {
+                                    showWindow()
+                                }
+                            },
+                            onSnooze = { choice -> state.snoozeAlert(alert, choice) },
+                            onDismiss = { state.dismissAlert(alert) }
+                        )
+                    }
                 }
             }
 

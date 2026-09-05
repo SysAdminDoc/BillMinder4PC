@@ -4,6 +4,15 @@ All notable changes to this project are recorded here.
 
 ## Unreleased
 
+### Added
+- Reminders now reach you. A due or overdue bill raises a tray balloon and an always-on-top reminder pane naming the bill, its amount, and how the due date sits against today.
+- The reminder pane settles the bill in one click, snoozes for an hour or until tomorrow, or dismisses. A variable-amount bill opens the amount form instead of recording its estimate.
+- A snooze is held against the wall clock, so one taken before the machine sleeps fires when it wakes rather than an hour of running time later.
+- Reminders withdraw themselves. Paying a bill anywhere in the app, or deleting it, clears any reminder still waiting for that cycle.
+
+### Changed
+- Reminder events used to be written to the log and nowhere else.
+
 ## [0.2.1] - 2026-08-31
 
 ### Fixed

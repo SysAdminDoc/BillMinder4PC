@@ -1,6 +1,7 @@
 package com.sysadmindoc.billminder4pc.desktop
 
 import com.sysadmindoc.billminder4pc.core.cycle.BillCycles
+import com.sysadmindoc.billminder4pc.core.cycle.CycleEngine
 import com.sysadmindoc.billminder4pc.core.cycle.ResolvedCycle
 import com.sysadmindoc.billminder4pc.core.model.Bill
 import com.sysadmindoc.billminder4pc.core.model.Payment
@@ -14,11 +15,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -35,6 +40,7 @@ import java.awt.Desktop
 import java.nio.file.Files
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -126,6 +132,104 @@ class AppState(
         logger = logger
     )
     val reminderEvents = reminderScheduler.events
+
+    /** Reminders waiting for the user. Populated from [reminderEvents], settled by the dashboard. */
+    val reminderAlerts = ReminderAlertQueue()
+
+    private val _alertBalloons = MutableSharedFlow<ReminderAlert>(
+        replay = 0,
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    /** One emission per reminder that has just become visible, for the tray balloon. */
+    val alertBalloons: SharedFlow<ReminderAlert> = _alertBalloons.asSharedFlow()
+
+    init {
+        scope.launch {
+            reminderEvents.collect { event ->
+                val alert = event.toAlert()
+                val before = reminderAlerts.current.value
+                reminderAlerts.submit(alert)
+                if (reminderAlerts.current.value != before) _alertBalloons.tryEmit(alert)
+                logger.info(
+                    "Reminder due for bill ${alert.billId}, cycle ${alert.cycleKey}, " +
+                        "kind ${alert.kind}, scheduled ${alert.scheduledAt}"
+                )
+            }
+        }
+        scope.launch {
+            reminderTickSignals.onStart { emit(Unit) }.collect {
+                reminderAlerts.tick(clock.instant())
+            }
+        }
+        scope.launch {
+            dashboard.collect { snapshot ->
+                if (snapshot.loaded) {
+                    reminderAlerts.settle(snapshot.rows.map { it.bill }, snapshot.paidCycleKeys)
+                }
+            }
+        }
+    }
+
+    /**
+     * Settles the occurrence a reminder is about, not whatever cycle happens to be current.
+     * A variable-amount bill collects its real amount first, exactly as quick pay does.
+     */
+    fun resolveAlert(alert: ReminderAlert): QuickPayResult {
+        val row = rowForAlert(alert) ?: return QuickPayResult.IGNORED
+        if (row.isPaid) {
+            reminderAlerts.dismiss(alert.id)
+            return QuickPayResult.IGNORED
+        }
+        if (row.bill.isVariableAmount) {
+            _paymentPromptRow.value = row
+            return QuickPayResult.AMOUNT_REQUIRED
+        }
+        markPaid(row)
+        reminderAlerts.dismiss(alert.id)
+        return QuickPayResult.PAYMENT_STARTED
+    }
+
+    /** Hides a reminder until the chosen offset. Tomorrow lands on the configured reminder hour. */
+    fun snoozeAlert(alert: ReminderAlert, choice: SnoozeChoice) {
+        val now = clock.instant()
+        val wakeAt = when (choice) {
+            SnoozeChoice.ONE_HOUR -> now.plus(1, ChronoUnit.HOURS)
+            SnoozeChoice.TOMORROW -> LocalDate.now(clock.withZone(zone))
+                .plusDays(1)
+                .atTime(preferences.value.reminderHour, 0)
+                .atZone(zone)
+                .toInstant()
+        }
+        reminderAlerts.snooze(alert.id, wakeAt)
+    }
+
+    fun dismissAlert(alert: ReminderAlert) {
+        reminderAlerts.dismiss(alert.id)
+    }
+
+    private fun rowForAlert(alert: ReminderAlert): BillRow? {
+        val snapshot = dashboard.value
+        val bill = snapshot.rows.firstOrNull { it.bill.id == alert.billId }?.bill ?: return null
+        val payment = snapshot.payments
+            .firstOrNull { it.billId == alert.billId && it.cycleKey == alert.cycleKey }
+        return BillRow(
+            bill = bill,
+            cycle = ResolvedCycle(
+                billId = bill.id,
+                date = alert.cycleDate,
+                cycleKey = alert.cycleKey,
+                dueAt = CycleEngine.dueInstant(alert.cycleDate, zone),
+                daysUntilDue = ChronoUnit.DAYS
+                    .between(snapshot.asOfDate, alert.cycleDate)
+                    .toInt(),
+                isPaid = payment != null,
+                isOverdue = payment == null && alert.cycleDate.isBefore(snapshot.asOfDate),
+                payment = payment
+            )
+        )
+    }
 
     private fun buildDashboard(
         bills: List<Bill>,

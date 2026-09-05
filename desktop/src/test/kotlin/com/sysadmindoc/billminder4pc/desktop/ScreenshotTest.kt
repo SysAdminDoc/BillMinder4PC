@@ -18,6 +18,7 @@ import com.sysadmindoc.billminder4pc.data.BillDatabase
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
+import com.sysadmindoc.billminder4pc.desktop.ui.ReminderPane
 import com.sysadmindoc.billminder4pc.desktop.ui.Section
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -229,6 +230,48 @@ class ScreenshotTest {
             val file = File(outDir, "startup-recovery.png")
             file.writeBytes(data.bytes)
             assertTrue("recovery screenshot should not be empty", file.length() > 5_000)
+        } finally {
+            scene.close()
+        }
+    }
+
+    @Test
+    fun `the reminder pane renders an overdue bill with its actions`() {
+        val today = LocalDate.of(2026, 9, 5)
+        val alert = ReminderAlert(
+            billId = 1,
+            billName = "Rent",
+            amount = 1_450.0,
+            currency = "USD",
+            isVariableAmount = false,
+            isAutoPay = false,
+            cycleDate = today.minusDays(2),
+            cycleKey = today.minusDays(2).toString(),
+            kind = ReminderKind.OVERDUE,
+            scheduledAt = Instant.parse("2026-09-05T09:00:00Z")
+        )
+        val scene = ImageComposeScene(width = 520, height = 300, density = Density(1f)) {
+            BillMinderTheme {
+                ReminderPane(
+                    alert = alert,
+                    today = today,
+                    billColor = 0xFF62A5FF,
+                    remaining = 1,
+                    onPay = {},
+                    onSnooze = {},
+                    onDismiss = {}
+                )
+            }
+        }
+        try {
+            val data = requireNotNull(scene.render().encodeToData(EncodedImageFormat.PNG)) {
+                "Skia returned no PNG data for the reminder pane"
+            }
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            val file = File(outDir, "reminder.png")
+            file.writeBytes(data.bytes)
+            assertTrue("reminder screenshot should not be empty", file.length() > 5_000)
         } finally {
             scene.close()
         }
