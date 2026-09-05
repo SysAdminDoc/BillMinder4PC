@@ -2,19 +2,13 @@
 
 Single task tracker for BillMinder for PC. Items are ordered by priority within each block.
 
-## P0: The reminder layer
-
-Without this the app is a spreadsheet with a nice theme. This is the product.
-
-- [ ] **Windows toast notifications with action buttons.** Mark Paid, Snooze, and Open. A JVM process cannot raise a real Action Center toast on its own: it needs an AppUserModelID on a Start menu shortcut plus a COM activator for the buttons. Plan is a small .NET sidecar shipped inside the jpackage app image, using `ToastNotificationManagerCompat` which registers the activator for unpackaged apps, talking to the JVM over a named pipe. Fallback if that stalls: tray balloon plus an always-on-top due window, which is a port of the Android full-screen alarm screen. Research 2026-08-31: evaluate SnoreToast (KDE's LGPL toast exe, buttons reported over exit code or named pipe) and kdroidFilter's ComposeNativeNotification before building the sidecar; both are lighter, though the latter's button activation is unverified. jpackage does not stamp the AppUserModelID on its shortcut, so stamping it post-install is needed on every route. Status 2026-09-05: the fallback shipped, so reminders do reach the user (tray balloon plus an always-on-top pane with mark paid, snooze, and dismiss). What remains is the real Action Center toast whose buttons work without the pane taking focus.
-
 ## P1: Finish the core surfaces
 
 - [ ] **Add and edit bill.** A basic monthly add form landed in v0.2.0. Editing and advanced fields remain: recurrence, variable amounts, tags, currency, payment URL, and split payees.
 - [ ] **Bill detail.** Payment history, lifetime spend, next occurrences, and the mark-paid dialog with custom amount and confirmation number.
 - [ ] **Calendar page.** The month grid and selected-day payment strip landed in v0.2.0. A year view remains.
 - [ ] **Insights page.** Category spending, payment status, and a six-month outlook landed in v0.2.0. Extend this to twelve months and port `CashFlowProjection` with `CurrencyConverter`.
-- [ ] **Settings page.** Reminder time, due-day and overdue controls, tray behaviour, data folder, theme, and layout density landed in v0.2.0. Startup registration and the per-bill reminders overview remain.
+- [ ] **Settings page.** Reminder time, due-day and overdue controls, tray behaviour, data folder, theme, and layout density landed in v0.2.0. Startup registration and the per-bill reminders overview remain. Status 2026-09-05: startup registration shipped; the per-bill reminders overview is what is left.
 - [ ] **Search, sort, and category filter** across the ledger.
 
 ## P2: Earn the desktop
