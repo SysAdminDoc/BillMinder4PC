@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.Instant
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 /**
  * Identity of a reminder the user has seen. Matches the scheduler's own event identity so a
@@ -28,23 +29,30 @@ data class ReminderAlert(
     val cycleDate: LocalDate,
     val cycleKey: String,
     val kind: ReminderKind,
-    val scheduledAt: Instant
+    val scheduledAt: Instant,
+    /** 0 first showing, 1 the four-hour follow-up, 2 the final one a day after dismissal. */
+    val escalationLevel: Int = 0,
+    /** When the user first dismissed this reminder. Both follow-ups are measured from it. */
+    val dismissedAt: Instant? = null
 ) {
     val id: ReminderAlertId get() = ReminderAlertId(billId, cycleKey, kind)
 
+    /** Label for a reminder the user has already pushed away once. */
+    val escalationLabel: String?
+        get() = when (escalationLevel) {
+            1 -> "Follow-up"
+            2 -> "Still unpaid"
+            else -> null
+        }
+
     /** Balloon and window headline. The amount belongs beside the name, the way the phone does it. */
-    fun title(hideAmount: Boolean = false): String {
-        val money = if (hideAmount) HIDDEN_AMOUNT else Format.money(amount, currency)
+    fun title(): String {
         val suffix = if (isAutoPay) " (auto-pay)" else ""
-        return "$billName · $money$suffix"
+        return "$billName · ${Format.money(amount, currency)}$suffix"
     }
 
     /** Plain-language due state, sharing one wording with the ledger. */
     fun body(today: LocalDate): String = Format.relativeDue(cycleDate, today)
-
-    companion object {
-        const val HIDDEN_AMOUNT = "••••"
-    }
 }
 
 fun ReminderEvent.toAlert(): ReminderAlert = ReminderAlert(
@@ -64,6 +72,34 @@ fun ReminderEvent.toAlert(): ReminderAlert = ReminderAlert(
 enum class SnoozeChoice(val label: String) {
     ONE_HOUR("Snooze 1 hour"),
     TOMORROW("Snooze until tomorrow")
+}
+
+/** Hours after the first dismissal at which each follow-up is raised. */
+private const val FOLLOW_UP_HOURS = 4L
+private const val FINAL_HOURS = 24L
+
+/**
+ * The next step of the dismissal cascade, or null when the reminder is spent.
+ *
+ * Both follow-ups are measured from the first dismissal, so pushing the four-hour one away late
+ * does not push the last one a further day out. An overdue reminder does not cascade: it is
+ * already the end of the line, and a reminder the user cannot clear is a reminder they learn to
+ * ignore.
+ */
+fun ReminderAlert.escalate(now: Instant): Pair<ReminderAlert, Instant>? {
+    if (kind == ReminderKind.OVERDUE) return null
+    val firstDismissal = dismissedAt ?: now
+    val wakeAt = when (escalationLevel) {
+        0 -> firstDismissal.plus(FOLLOW_UP_HOURS, ChronoUnit.HOURS)
+        1 -> firstDismissal.plus(FINAL_HOURS, ChronoUnit.HOURS)
+        else -> return null
+    }
+    // A follow-up left until after its successor was already due has nothing left to say.
+    if (!wakeAt.isAfter(now)) return null
+    return copy(
+        escalationLevel = escalationLevel + 1,
+        dismissedAt = firstDismissal
+    ) to wakeAt
 }
 
 /**
@@ -106,6 +142,16 @@ class ReminderAlertQueue {
     /** Hides the reminder until [wakeAt]. A later [tick] brings it back. */
     fun snooze(id: ReminderAlertId, wakeAt: Instant) {
         val alert = _pending.value.firstOrNull { it.id == id } ?: return
+        defer(alert, wakeAt)
+    }
+
+    /**
+     * Holds [alert] until [wakeAt], replacing whatever version of it is waiting now. Escalation
+     * uses this to put back a reminder the user dismissed, carrying its new level.
+     */
+    fun defer(alert: ReminderAlert, wakeAt: Instant) {
+        val id = alert.id
+        if (id in handled) return
         snoozed[id] = SnoozedAlert(alert, wakeAt)
         _pending.value = _pending.value.filterNot { it.id == id }
         publish()

@@ -54,7 +54,10 @@ fun ReminderPane(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = if (overdue) "Bill overdue" else "Bill due",
+                        text = listOfNotNull(
+                            if (overdue) "Bill overdue" else "Bill due",
+                            alert.escalationLabel
+                        ).joinToString(" · "),
                         style = MaterialTheme.typography.labelMedium,
                         color = accent,
                         fontWeight = FontWeight.SemiBold

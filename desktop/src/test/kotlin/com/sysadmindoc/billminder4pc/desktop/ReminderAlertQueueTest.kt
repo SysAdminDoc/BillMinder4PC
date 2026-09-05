@@ -169,11 +169,4 @@ class ReminderAlertQueueTest {
         assertEquals("Due tomorrow", alert(cycle = today.plusDays(1)).body(today))
         assertEquals("2 days overdue", alert(cycle = today.minusDays(2)).body(today))
     }
-
-    @Test
-    fun `hiding the amount keeps it out of the title`() {
-        val masked = alert().title(hideAmount = true)
-        assertTrue(masked.contains(ReminderAlert.HIDDEN_AMOUNT))
-        assertTrue(!masked.contains("1450"))
-    }
 }

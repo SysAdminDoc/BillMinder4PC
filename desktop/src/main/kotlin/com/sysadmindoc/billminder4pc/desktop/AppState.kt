@@ -205,8 +205,17 @@ class AppState(
         reminderAlerts.snooze(alert.id, wakeAt)
     }
 
+    /**
+     * Pushes a reminder away. A bill that is still unpaid comes back once four hours later and
+     * once a day after that first dismissal; after that it stops asking.
+     */
     fun dismissAlert(alert: ReminderAlert) {
-        reminderAlerts.dismiss(alert.id)
+        val next = alert.escalate(clock.instant())
+        if (next == null) {
+            reminderAlerts.dismiss(alert.id)
+        } else {
+            reminderAlerts.defer(next.first, next.second)
+        }
     }
 
     private fun rowForAlert(alert: ReminderAlert): BillRow? {

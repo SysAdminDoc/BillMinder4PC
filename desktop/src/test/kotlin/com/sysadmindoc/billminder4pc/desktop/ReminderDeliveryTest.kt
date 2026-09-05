@@ -189,6 +189,32 @@ class ReminderDeliveryTest {
         }
     }
 
+    @Test
+    fun `a dismissed reminder comes back four hours later`() = runBlocking {
+        val (state, ticks, clock) = fixture()
+        try {
+            withTimeout(5_000) { state.dashboard.first { it.loaded } }
+            deliverReminder(ticks, clock)
+            val alert = withTimeout(5_000) { state.reminderAlerts.current.first { it != null } }!!
+            assertEquals(0, alert.escalationLevel)
+
+            state.dismissAlert(alert)
+            assertNull(state.reminderAlerts.current.value)
+
+            clock.currentInstant = Instant.parse("2026-09-01T12:00:00Z")
+            ticks.emit(Unit)
+            assertNull(state.reminderAlerts.current.value)
+
+            clock.currentInstant = Instant.parse("2026-09-01T13:05:00Z")
+            ticks.emit(Unit)
+            val followUp = withTimeout(5_000) { state.reminderAlerts.current.first { it != null } }!!
+            assertEquals(1, followUp.escalationLevel)
+            assertEquals("Follow-up", followUp.escalationLabel)
+        } finally {
+            state.close()
+        }
+    }
+
     private class MutableClock(
         var currentInstant: Instant,
         private val zoneId: ZoneId
