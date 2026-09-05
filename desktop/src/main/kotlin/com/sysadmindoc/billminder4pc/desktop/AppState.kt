@@ -68,7 +68,10 @@ data class Dashboard(
     val paid: List<BillRow> = emptyList(),
     val payments: List<Payment> = emptyList(),
     val paidCycleKeys: Map<Long, Set<String>> = emptyMap(),
+    /** Every unpaid occurrence that has come due, not one per bill. */
     val totalDue: Double = 0.0,
+    /** Everything the calendar month bills, paid or not. */
+    val monthTotal: Double = 0.0,
     val asOfDate: LocalDate = LocalDate.MIN,
     val loaded: Boolean = false
 )
@@ -272,10 +275,40 @@ class AppState(
             paid = paidRows,
             payments = payments,
             paidCycleKeys = paidByBill,
-            totalDue = (overdue + upcoming).sumOf { it.bill.amount },
+            totalDue = (overdue + upcoming).sumOf { row ->
+                arrearsCount(row, paidByBill[row.bill.id].orEmpty(), today) * row.bill.amount
+            },
+            monthTotal = monthTotal(bills, today),
             asOfDate = today,
             loaded = true
         )
+    }
+
+    /**
+     * How many occurrences of this bill are outstanding, not whether any are.
+     *
+     * A bill three cycles in arrears owes three amounts. `currentCycle` deliberately pins to the
+     * oldest unpaid occurrence, so counting rows instead of occurrences understated the total by
+     * every cycle after the first.
+     */
+    private fun arrearsCount(row: BillRow, paidKeys: Set<String>, today: LocalDate): Int {
+        val cycleDate = row.dueDate ?: return 0
+        return BillCycles.unpaidOccurrences(
+            bill = row.bill,
+            paidKeys = paidKeys,
+            start = today.minusMonths(CycleEngine.LOOKBACK_MONTHS),
+            endInclusive = maxOf(today, cycleDate),
+            zone = zone
+        ).size
+    }
+
+    /** Everything the calendar month bills, whether or not it has been settled. */
+    private fun monthTotal(bills: List<Bill>, today: LocalDate): Double {
+        val start = today.withDayOfMonth(1)
+        val end = start.plusMonths(1).minusDays(1)
+        return bills.sumOf { bill ->
+            CycleEngine.occurrencesInRange(bill, start, end, zone).size * bill.amount
+        }
     }
 
     fun markPaid(row: BillRow, amount: Double = row.bill.amount) {

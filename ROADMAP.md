@@ -72,13 +72,6 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: an autopay bill fires a single FYI notice on the due day with no cascade; a manual bill keeps the full escalation.
   Complexity: S
 
-- [ ] P1: **Month total and true arrears total.**
-  Why: "Total due" counts a bill once no matter how many cycles are unpaid, and a month total of all bills is the number Chronicle's own reviews flag as missing.
-  Evidence: `AppState.kt` sums `bill.amount` per row; `BillCycles.unpaidOccurrences` exists for this and is unused; Chronicle App Store review.
-  Touches: `AppState.kt`, `BillsScreen` summary header, tests.
-  Acceptance: a bill three cycles in arrears contributes three amounts to the attention total, and the header shows the calendar month's total billed.
-  Complexity: S
-
 - [ ] P2: **Port the quick-add templates and merchant normalizer.**
   Why: 28 templates and a 400-alias normalizer make entry, autocomplete, and import cleanup free, and they feed the planned keyboard-first bar.
   Evidence: `C:\repos\BillMinder\...\data\BillTemplates.kt` and `MerchantNormalizer.kt`, both pure JVM with tests.
@@ -149,7 +142,7 @@ This pass compared this repo against the Android sibling file by file. Details, 
 Notes on existing items, so they are not re-filed as new ones:
 
 - **"Import from BillMinder for Android"** is pointed at the wrong format. The phone app no longer writes a JSON export; `BackupManager.kt` there has `exportBundle` (`.bmbak`) plus an import-only `importLegacyJson`. Re-point this item at `.bmbak`: an encrypted AES-256-GCM container over a ZIP holding `manifest.json` with per-entry SHA-256, `data.json` with bills, cycle-keyed payments, payees and seven preferences, and `receipts/<uuid>.bin`. The spec is `docs/BACKUP_FORMAT.md` in that repo. Reading a legacy JSON file stays worth keeping as a secondary path for old exports, but it is no longer the interchange story.
-- **"Month total and true arrears total"** now has a root cause. `BillCycles` was never fully ported: the Android copy owns `rangeSnapshot()` and `currentCycles()`, which is the single path every surface there uses for totals, and this copy has neither. Fix it by porting `rangeSnapshot` with its `CycleRangeSnapshot` type and routing `AppState.buildDashboard` through it, rather than by patching the sum in place. That also lands the currency-conversion hook the twelve-month insights item needs.
+- **`BillCycles` was never fully ported.** The Android copy owns `rangeSnapshot()` and `currentCycles()`, the single path every surface there uses for totals, and this copy has neither. The arrears and month totals were fixed on 2026-09-05 by counting occurrences in `AppState` directly, which was the smaller change. Porting `rangeSnapshot` with its `CycleRangeSnapshot` type is still the parity move, and it carries the currency-conversion hook the twelve-month insights item needs.
 - **"Subscription lifecycle", "Flexible recurrence", and "Partial payments"** are all paired changes, and none of them can start until this database can migrate. See the migration item below.
 - **"Port the quick-add templates and merchant normalizer"**: hold the templates half. All 28 entries in the Android `BillTemplates.kt` are dead code there; its editor hardcodes a separate six-item grid. Porting them now copies dead code. `MerchantNormalizer` is live and worth porting immediately.
 

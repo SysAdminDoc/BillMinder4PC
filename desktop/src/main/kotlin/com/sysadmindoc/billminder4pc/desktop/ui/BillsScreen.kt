@@ -191,6 +191,11 @@ private fun BillsSummary(dashboard: Dashboard) {
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Text(
+                    "${Format.money(dashboard.monthTotal)} billed this month",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Box(
                 Modifier.width(1.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outline)

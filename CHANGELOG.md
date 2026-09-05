@@ -13,6 +13,9 @@ All notable changes to this project are recorded here.
 
 - Start when I sign in works. It registers a per-user Task Scheduler entry with the battery conditions switched off, which is what otherwise stops a task from ever running on a machine that uses Modern Standby. Turning it off removes the entry, and the checkbox reflects the task that actually exists rather than what was last clicked.
 
+### Fixed
+- Total due counts every outstanding cycle. A bill three months in arrears owed one month's amount on the header and now owes three. The ledger header also shows what the calendar month bills in total, paid or not.
+
 ### Changed
 - Reminder events used to be written to the log and nowhere else.
 - The Start-when-I-sign-in checkbox used to be permanently disabled. In a development build it still is, because there is no installed executable to point the task at, and the row now says so.
