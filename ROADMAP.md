@@ -150,6 +150,107 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: paying half leaves the cycle outstanding showing the remainder; paying the rest settles it; the round-trip fixture covers it.
   Complexity: L
 
+### Added 2026-09-04 (cross-platform parity pass)
+
+This pass compared this repo against the Android sibling file by file. Details, evidence, and the full drift list are in RESEARCH.md.
+
+Notes on existing items, so they are not re-filed as new ones:
+
+- **"Import from BillMinder for Android"** is pointed at the wrong format. The phone app no longer writes a JSON export; `BackupManager.kt` there has `exportBundle` (`.bmbak`) plus an import-only `importLegacyJson`. Re-point this item at `.bmbak`: an encrypted AES-256-GCM container over a ZIP holding `manifest.json` with per-entry SHA-256, `data.json` with bills, cycle-keyed payments, payees and seven preferences, and `receipts/<uuid>.bin`. The spec is `docs/BACKUP_FORMAT.md` in that repo. Reading a legacy JSON file stays worth keeping as a secondary path for old exports, but it is no longer the interchange story.
+- **"Month total and true arrears total"** now has a root cause. `BillCycles` was never fully ported: the Android copy owns `rangeSnapshot()` and `currentCycles()`, which is the single path every surface there uses for totals, and this copy has neither. Fix it by porting `rangeSnapshot` with its `CycleRangeSnapshot` type and routing `AppState.buildDashboard` through it, rather than by patching the sum in place. That also lands the currency-conversion hook the twelve-month insights item needs.
+- **"Subscription lifecycle", "Flexible recurrence", and "Partial payments"** are all paired changes, and none of them can start until this database can migrate. See the migration item below.
+- **"Port the quick-add templates and merchant normalizer"**: hold the templates half. All 28 entries in the Android `BillTemplates.kt` are dead code there; its editor hardcodes a separate six-item grid. Porting them now copies dead code. `MerchantNormalizer` is live and worth porting immediately.
+
+#### P1
+
+- [ ] P1: **Mirror the parity contract and enforce it at build time.**
+  Why: `core/.../model/Bill.kt` calls the schema an interchange contract in a comment, `CLAUDE.md` calls the ported tests a drift detector, and neither is checked by anything. `BillCycles` diverged from the Android copy without anyone noticing, and this repo has also accumulated inherited dead API that copying source moves along silently.
+  Evidence: 2026-09-04 diff. `ResolvedBillCycle`, `CycleRangeSnapshot`, `currentCycles()` and `rangeSnapshot()` exist only on Android; `paidKeys()` and `unpaidOccurrences()` only here. Inherited but unreferenced here: `SortMode`, `BillCategory.fromLabel`, `PayeeDraft`/`PayeeMath`, `CycleEngine.parseCycleKey`, `CycleEngine.cycleKeyForInstant`, `Format.monthLabel`, `AppPaths.attachmentsDir`, `BillDao.observePayees`/`allPayees`/`payeesFor`, `BillRepository.observePayees`/`updateBill`/`deleteBill`, and a `kotlinx-serialization-json` dependency with no `@Serializable` in the module.
+  Touches: a tracked `PARITY.md` listing every mirrored file with an owning repo and a normalized SHA-256; a `parityCheck` Gradle task that strips the package declaration and trailing whitespace before hashing; the same file and task in the Android repo.
+  Acceptance: `gradlew parityCheck` passes on a clean tree and fails by name when one line of `core/.../cycle/CycleEngine.kt` changes without the manifest; the manifest records an owning repo per file so this repo's own originals (the day-change signal, `AppLogger`, the light theme) are not reported as drift.
+  Complexity: M
+
+- [ ] P1: **Add Room migration infrastructure before the first paired schema change.**
+  Why: the database is `version = 1` with zero `Migration` classes, no `addMigrations(...)`, and no destructive fallback. The first schema bump hard-fails into the recovery screen, which offers no repair or restore action. Every paired feature on this roadmap is a schema bump.
+  Evidence: `data/.../BillDatabase.kt`; the exported `data/schemas/...BillDatabase/1.json`; `StartupRecoveryScreen.kt` offers only Close and Open data folder. The Android repo tests migrations from every shipped schema version and cites a competitor's "data reset after update" report as the reason (https://github.com/isaacsa51/Minus/issues/153).
+  Touches: an `ALL_MIGRATIONS` list wired into `DatabaseFactory.open`, a migration test class modelled on the Android `BillDatabaseMigrationTest`, a v1 fixture builder, and a snapshot-before-migrate step so a failed upgrade is recoverable.
+  Acceptance: a deliberate v1-to-v2 migration applies on an existing database with rows intact and is covered by a test that starts from a hand-built v1 fixture including indices; opening a database written by a newer version reports the situation and leaves the file untouched; a mid-migration failure leaves the pre-migration snapshot in `backups/`.
+  Complexity: M
+
+- [ ] P1: **Write `.bmbak` as well as read it, with the Android validation intact.**
+  Why: the existing import item only moves data one way. `AppState.exportBackup()` writes a ZIP of a raw SQLite snapshot plus `preferences.properties` with no manifest, version stamp, or checksum, so nothing this app produces can be opened on the phone, and a corrupted backup cannot be detected before it is restored.
+  Evidence: `AppState.exportBackup()`; `SettingsScreen.kt:273-278` disabled import control; the Android `docs/BACKUP_FORMAT.md` and `data/BackupBundle.kt`, whose validation covers the authenticated header, exact schema, entry-path pattern, zip-slip containment, per-entry byte count and SHA-256, foreign-key integrity, cycle uniqueness, and per-field bounds.
+  Touches: a `:core` or `:data` port of the platform-free container, validator, and payload (the Android repo has a paired item to extract exactly that half), a passphrase prompt in Settings, the export and import controls, and the parity manifest.
+  Acceptance: a `.bmbak` written here opens on the phone with bills, payments, payees, and settings matching the source graph exactly, and the reverse holds; a truncated, tampered, or wrong-schema file is refused with the same message on both sides and nothing is written; the rolling-backup item's unencrypted snapshot stays a separate format and is documented as such.
+  Complexity: L
+
+- [ ] P1: **Persist and bound the reminder dedupe set.**
+  Why: `ReminderEventId(billId, cycleDate, kind)` lives in a plain in-memory set that is never written to disk and never pruned. Today that only wastes memory because nothing is delivered. The moment toasts ship, a restart re-arms every identity and re-fires reminders the user already dismissed, and a long-running tray process leaks one entry per event forever.
+  Evidence: `desktop/.../ReminderScheduler.kt` `delivered` set; `CLAUDE.md` records the identity rule and says to keep it when adding toast delivery.
+  Touches: `ReminderScheduler.kt`, a small delivered-events store beside `preferences.properties` or a table in the database, and a retention rule that drops entries older than the lookback window.
+  Acceptance: a reminder delivered before a restart is not delivered again after it; entries older than the retention window are dropped on each reconcile so the set stays bounded across a simulated year; the existing backward-clock-jump test still passes unchanged.
+  Complexity: S
+
+- [ ] P1: **Pass the injected zone into the calendar.**
+  Why: `CalendarScreen` resolves occurrences with the system default zone while `AppState` uses its injected one, so under a non-default zone the grid and the ledger disagree about which day a bill falls on. The whole point of the cycle-key design is that both apps agree on the date.
+  Evidence: `desktop/.../ui/CalendarScreen.kt:75` and `:354` call `CycleEngine.occurrencesInRange` and `dueInstant` with no zone argument.
+  Touches: `CalendarScreen.kt`, the zone plumbed through from `AppState`, and a test that renders the calendar under a non-default zone.
+  Acceptance: with the clock and zone both injected to a non-default zone, the calendar cell holding a bill matches the ledger's due date for that bill; a test fails if the zone argument is dropped again.
+  Complexity: S
+
+#### P2
+
+- [ ] P2: **Reconcile the shared palette with the phone.**
+  Why: the two apps are meant to read as one product and the accent already differs, while the stored default colour matches neither. A bill created here and opened on the phone renders outside that app's palette.
+  Evidence: `desktop/.../theme/Color.kt:19` `CatBlue = 0xFF338BFF` against the Android `0xFF62A5FF`; `Bill.color` defaults to `0xFF89B4FA` in both; `CategoryColors[0]` is `CatBlue` in both.
+  Touches: `theme/Color.kt`, the `Bill.color` default in `core/.../model/Bill.kt`, the same files in the Android repo, the parity manifest, and regenerated README captures.
+  Acceptance: one agreed hex per named token in both repos with the palette file in the parity manifest; the `Bill.color` default equals `CategoryColors[0]`; existing bills keep their stored colour because `storedBillColor` is untouched.
+  Complexity: S
+
+- [ ] P2: **Make the Insights page tell the truth.**
+  Why: three separate defects on one page, and `design-qa.md` currently records no actionable P0, P1, or P2 differences remaining. The month arrows suggest the summary follows them and it does not, the outlook's axis is a fixed list of strings unrelated to the data, and the status ring is invisible in the wrong theme.
+  Evidence: `desktop/.../ui/InsightsScreen.kt:63-65` computes scheduled, paid, and remaining from the whole dashboard and ignores `displayedMonth`; `:288` hardcodes the axis labels `$2.4k`, `$1.8k`, `$1.2k`, `$0.6k`, `$0`; `:296-300` pins the guide line at 31% of height; `:217` hardcodes the ring track to `0xFF2A3C55` instead of a theme token.
+  Touches: `InsightsScreen.kt` summary computation, an axis derived from the chart ceiling, a theme-aware track colour, and a light-theme screenshot.
+  Acceptance: moving the month arrows changes scheduled, paid, and remaining; the axis labels match the data at three different value scales including an all-zero month; the ring track is legible in both themes and the light capture proves it.
+  Complexity: S
+
+- [ ] P2: **Anchor the screenshot suite to semantics and golden images.**
+  Why: it is the best test asset in the repo and the easiest to fool. Every interaction targets absolute pixel coordinates, so a layout shift silently clicks the wrong thing or nothing, and the assertions are byte-size floors, so a blank or garbled render above 5 KB passes.
+  Evidence: `desktop/.../ScreenshotTest.kt` clicks at (1040,42), (1025,568), (1028,697), (878,188), (1025,438) and asserts only `bytes > 5_000`; `design-qa.md` cites comparison images under `desktop/build/` which is gitignored, so the QA pass cannot be reproduced from a clean checkout.
+  Touches: `ScreenshotTest.kt` (semantics-based finders in place of coordinates), a committed golden-image directory with a perceptual diff and a tolerance, and `design-qa.md` pointing at tracked evidence.
+  Acceptance: moving a control 40 px does not change which control a test clicks; a deliberately blanked page fails the golden diff; the design-QA evidence referenced in the document exists in a clean checkout.
+  Complexity: M
+
+- [ ] P2: **Route stored timestamps through the injected clock.**
+  Why: `Bill.createdAt` and `Payment.paidAt` default to `System.currentTimeMillis()`, so they cannot be frozen in tests that otherwise inject a `Clock`, and a fixture written under a fixed clock still carries real wall time into any interchange round-trip fixture.
+  Evidence: `core/.../model/Bill.kt` defaults on both entities; `AppStateTest` and `ScreenshotTest` inject `Clock.fixed(...)` for everything else.
+  Touches: `BillRepository` write paths so the caller supplies the timestamp, `AppState`, `SampleData`, and the paired change in the Android repo since the defaults live in the shared entity.
+  Acceptance: a bill added under a fixed clock stores exactly that instant; `SampleData` seeds deterministic timestamps; the change is applied in both repos in the same pass because the entity is mirrored.
+  Complexity: S
+
+- [ ] P2: **Delete the orphan toast sidecar binaries.**
+  Why: two compiled `.exe` files sit in the working tree with no source, no build wiring, and no code reference. They are untracked because `*.exe` is gitignored, which means they are invisible to review and one careless `git add -f` or packaging change away from shipping.
+  Evidence: `desktop/toast-sidecar/bin/Release/net48/BillMinderToast.exe` and `desktop/toast-sidecar/obj/Release/net48/BillMinderToast.exe`; no Gradle task or Kotlin file names them.
+  Touches: the `desktop/toast-sidecar/` directory.
+  Acceptance: the directory is gone; when the toast route is chosen, the sidecar is re-created with its source tracked and its build wired into Gradle.
+  Complexity: S
+
+- [ ] P2: **Correct the ported-test count in the documents.**
+  Why: `README.md`, `CHANGELOG.md`, and `CLAUDE.md` all say the ported recurrence engine carries 27 tests, and the figure is used as the evidence that the port is complete. `CycleEngineTest` has 25 methods; the 27 is the whole `:core` module including `PayeeMathTest`.
+  Evidence: `core/src/test/.../CycleEngineTest.kt` and `core/src/test/.../model/PayeeMathTest.kt` method counts on 2026-09-04.
+  Touches: `README.md`, `CHANGELOG.md` v0.1.0 entry, `CLAUDE.md`.
+  Acceptance: every sentence attributes its count to the right scope, and the parity manifest is what the documents point at for completeness rather than a number in prose.
+  Complexity: S
+
+#### P3
+
+- [ ] P3: **Give reminder settings a per-bill level, not just a global default.**
+  Why: `firstReminderDays` and `dueDayReminder` only affect the add form. Changing them does nothing to bills that already exist and nothing to delivery, so the Reminders card reads as a global setting and behaves as a form default. The phone app is the opposite: per-bill timings with no global default at all. Both apps should offer a global default that per-bill values can override.
+  Evidence: `desktop/.../AppPreferences.kt` keys `firstReminderDays` and `dueDayReminder`, consumed only in `BillsScreen.kt` when constructing a new `Bill`; `Bill.reminderTiming` and `Bill.secondReminderTiming` are the per-bill fields both apps already store; the Android scheduler reads only the per-bill fields.
+  Touches: the reminders card in `SettingsScreen.kt`, `ReminderPolicy`, the add and edit forms, the existing per-bill reminders overview item, and the matching global-default setting on the phone.
+  Acceptance: changing the global default changes when existing bills without an explicit override are reminded; a bill with an explicit timing ignores the global default; both apps agree on which level wins, and the rule is written in the parity contract.
+  Complexity: M
+
 ## Known issues
 
 - The MSI is 101 MB. That is a bundled JRE plus Skia, so some of it is unavoidable, but
