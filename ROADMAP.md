@@ -174,6 +174,14 @@ Notes on existing items, so they are not re-filed as new ones:
   Evidence: `desktop/.../ReminderScheduler.kt` `delivered` set; `CLAUDE.md` records the identity rule and says to keep it when adding toast delivery.
   Touches: `ReminderScheduler.kt`, a small delivered-events store beside `preferences.properties` or a table in the database, and a retention rule that drops entries older than the lookback window.
   Acceptance: a reminder delivered before a restart is not delivered again after it; entries older than the retention window are dropped on each reconcile so the set stays bounded across a simulated year; the existing backward-clock-jump test still passes unchanged.
+  Note (2026-09-05): reminder delivery shipped, so this is now a live defect rather than a latent one, and it is bigger than the `delivered` set. `ReminderAlertQueue`'s snoozes, dismissals and cascade level are process memory too, and `ReminderScheduler.reconcile` anchors `lastCheckedAt` on its first tick and never emits an instant that precedes app start. Dismiss a reminder at 21:00, sign out, sign back in at 08:00, and both follow-ups and the original are gone. Persisting the delivered set alone will not fix that; the queue's state and a replay window have to land with it.
+  Complexity: M
+
+- [ ] P2: **Check the sign-in task's target and enabled state, not just its name.**
+  Why: `isRegistered` only asks whether a task of that name exists. A task that is disabled in taskschd.msc, or that still points at a previous install path, reads as registered, so Settings shows a ticked box for something that will not start the app.
+  Evidence: `StartupRegistration.isRegistered` runs `schtasks /query /tn <name>` and reads only the exit code; `register` is called only from the checkbox, so `<Command>` is never refreshed after an install path changes. Found by the 2026-09-05 adversarial review of `b2e812a`.
+  Touches: `StartupRegistration` (parse `/query /xml` or `/v /fo list` for the action path and the enabled state), `AppState.reconcileStartAtLogin`, tests.
+  Acceptance: a task pointing at a stale executable is reported as not registered and is rewritten on the next enable; a task disabled outside the app reads as off; the reconcile also runs when the window regains focus, not only at construction.
   Complexity: S
 
 - [ ] P1: **Pass the injected zone into the calendar.**
