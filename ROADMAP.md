@@ -184,13 +184,6 @@ Notes on existing items, so they are not re-filed as new ones:
   Acceptance: a task pointing at a stale executable is reported as not registered and is rewritten on the next enable; a task disabled outside the app reads as off; the reconcile also runs when the window regains focus, not only at construction.
   Complexity: S
 
-- [ ] P1: **Pass the injected zone into the calendar.**
-  Why: `CalendarScreen` resolves occurrences with the system default zone while `AppState` uses its injected one, so under a non-default zone the grid and the ledger disagree about which day a bill falls on. The whole point of the cycle-key design is that both apps agree on the date.
-  Evidence: `desktop/.../ui/CalendarScreen.kt:75` and `:354` call `CycleEngine.occurrencesInRange` and `dueInstant` with no zone argument.
-  Touches: `CalendarScreen.kt`, the zone plumbed through from `AppState`, and a test that renders the calendar under a non-default zone.
-  Acceptance: with the clock and zone both injected to a non-default zone, the calendar cell holding a bill matches the ledger's due date for that bill; a test fails if the zone argument is dropped again.
-  Complexity: S
-
 #### P2
 
 - [ ] P2: **Reconcile the shared palette with the phone.**

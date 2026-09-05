@@ -44,6 +44,7 @@ import com.sysadmindoc.billminder4pc.desktop.Format
 import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -51,7 +52,7 @@ import java.util.Locale
 private val calendarMonthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US)
 private val agendaDateFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.US)
 
-private data class CalendarBill(
+internal data class CalendarBill(
     val bill: Bill,
     val date: LocalDate,
     val isPaid: Boolean
@@ -69,17 +70,8 @@ fun CalendarScreen(state: AppState) {
         first.minusDays((first.dayOfWeek.value % 7).toLong())
     }
     val dates = remember(firstVisibleDate) { List(42) { firstVisibleDate.plusDays(it.toLong()) } }
-    val entriesByDate = remember(dashboard.rows, dashboard.paidCycleKeys, firstVisibleDate) {
-        val lastVisibleDate = firstVisibleDate.plusDays(41)
-        dashboard.rows.flatMap { row ->
-            CycleEngine.occurrencesInRange(row.bill, firstVisibleDate, lastVisibleDate).map { date ->
-                CalendarBill(
-                    bill = row.bill,
-                    date = date,
-                    isPaid = CycleEngine.cycleKey(date) in dashboard.paidCycleKeys[row.bill.id].orEmpty()
-                )
-            }
-        }.groupBy { it.date }
+    val entriesByDate = remember(dashboard.rows, dashboard.paidCycleKeys, firstVisibleDate, state.zone) {
+        calendarEntries(dashboard, firstVisibleDate, firstVisibleDate.plusDays(41), state.zone)
     }
     val selectedEntries = entriesByDate[selectedDate].orEmpty()
 
@@ -160,6 +152,7 @@ fun CalendarScreen(state: AppState) {
             selectedDate = selectedDate,
             entries = selectedEntries,
             dashboard = dashboard,
+            zone = state.zone,
             onMarkPaid = state::requestQuickPay,
             onUndoPaid = state::undoPaid
         )
@@ -258,6 +251,7 @@ private fun AgendaStrip(
     selectedDate: LocalDate,
     entries: List<CalendarBill>,
     dashboard: Dashboard,
+    zone: ZoneId,
     onMarkPaid: (BillRow) -> Unit,
     onUndoPaid: (BillRow) -> Unit
 ) {
@@ -297,7 +291,7 @@ private fun AgendaStrip(
                 )
             } else {
                 val entry = entries.first()
-                val row = entry.toBillRow(dashboard)
+                val row = entry.toBillRow(dashboard, zone)
                 Box(
                     Modifier.size(4.dp, 38.dp)
                         .background(storedBillColor(entry.bill.color), RoundedCornerShape(2.dp))
@@ -342,7 +336,30 @@ private fun AgendaStrip(
     }
 }
 
-private fun CalendarBill.toBillRow(dashboard: Dashboard): BillRow {
+/**
+ * The occurrences the grid shows, keyed by date.
+ *
+ * Takes the zone rather than reaching for the system default. A bill whose anchor was never
+ * normalized derives one from `createdAt`, and that lands on a different date in a different zone,
+ * so the grid and the ledger would disagree about the day a bill falls on.
+ */
+internal fun calendarEntries(
+    dashboard: Dashboard,
+    start: LocalDate,
+    endInclusive: LocalDate,
+    zone: ZoneId
+): Map<LocalDate, List<CalendarBill>> =
+    dashboard.rows.flatMap { row ->
+        CycleEngine.occurrencesInRange(row.bill, start, endInclusive, zone).map { date ->
+            CalendarBill(
+                bill = row.bill,
+                date = date,
+                isPaid = CycleEngine.cycleKey(date) in dashboard.paidCycleKeys[row.bill.id].orEmpty()
+            )
+        }
+    }.groupBy { it.date }
+
+private fun CalendarBill.toBillRow(dashboard: Dashboard, zone: ZoneId): BillRow {
     val key = CycleEngine.cycleKey(date)
     val payment = dashboard.payments.firstOrNull { it.billId == bill.id && it.cycleKey == key }
     return BillRow(
@@ -351,7 +368,7 @@ private fun CalendarBill.toBillRow(dashboard: Dashboard): BillRow {
             billId = bill.id,
             date = date,
             cycleKey = key,
-            dueAt = CycleEngine.dueInstant(date),
+            dueAt = CycleEngine.dueInstant(date, zone),
             daysUntilDue = ChronoUnit.DAYS.between(dashboard.asOfDate, date).toInt(),
             isPaid = isPaid,
             isOverdue = !isPaid && date.isBefore(dashboard.asOfDate),

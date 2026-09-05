@@ -88,7 +88,7 @@ enum class QuickPayResult {
  */
 class AppState(
     private val db: BillDatabase,
-    private val zone: ZoneId = ZoneId.systemDefault(),
+    val zone: ZoneId = ZoneId.systemDefault(),
     private val clock: Clock = Clock.system(zone),
     dayChangeSignals: Flow<Unit> = minuteSignals(),
     reminderTickSignals: Flow<Unit> = schedulerSignals(),
