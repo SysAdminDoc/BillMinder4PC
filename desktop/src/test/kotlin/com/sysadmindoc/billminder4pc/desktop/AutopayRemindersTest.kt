@@ -63,6 +63,26 @@ class AutopayRemindersTest {
     }
 
     @Test
+    fun `a weekend due date is reminded against the Friday before it`() {
+        // 19 September 2026 is a Saturday, so the bill is payable on Friday the 18th and a
+        // three-day lead counts back from there, not from the Saturday.
+        val weekendCycle = LocalDate.of(2026, 9, 19)
+        val weekendBill = bill(autoPay = false).copy(
+            dueDay = weekendCycle.dayOfMonth,
+            anchorEpochDay = weekendCycle.toEpochDay()
+        )
+        val primary = reminderEventsBetween(
+            bills = listOf(weekendBill),
+            payments = emptyList(),
+            startExclusive = Instant.parse("2026-09-01T00:00:00Z"),
+            endInclusive = Instant.parse("2026-09-30T00:00:00Z"),
+            zone = zone
+        ).single { it.cycleDate == weekendCycle && it.kind == ReminderKind.PRIMARY }
+
+        assertEquals(Instant.parse("2026-09-15T09:00:00Z"), primary.scheduledAt)
+    }
+
+    @Test
     fun `dismissing an autopay notice ends it rather than starting a cascade`() {
         val alert = ReminderEvent(
             bill = bill(autoPay = true),

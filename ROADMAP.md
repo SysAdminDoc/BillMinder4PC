@@ -44,13 +44,6 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: launching after several missed occurrences shows one dialog listing them with pay, skip, and snooze per row; dismissing it leaves the ledger fully usable.
   Complexity: M
 
-- [ ] P1: **Business-day shift and configurable reminder time.**
-  Why: fixed 09:00 and weekend-blind reminders are the top configurability complaints in this space, and the Android app already ships the holiday calendar.
-  Evidence: firefly-iii #4893 (offsets "not configurable"); Wallos #905; `C:\repos\BillMinder\...\data\HolidayCalendar.kt` (pure JVM, tested).
-  Touches: `core` (port `HolidayCalendar` with its test), scheduler, settings.
-  Acceptance: a reminder for a Saturday due date fires on Friday at the user-chosen time.
-  Complexity: S
-
 - [ ] P2: **Port the quick-add templates and merchant normalizer.**
   Why: 28 templates and a 400-alias normalizer make entry, autocomplete, and import cleanup free, and they feed the planned keyboard-first bar.
   Evidence: `C:\repos\BillMinder\...\data\BillTemplates.kt` and `MerchantNormalizer.kt`, both pure JVM with tests.

@@ -2,6 +2,7 @@ package com.sysadmindoc.billminder4pc.desktop
 
 import com.sysadmindoc.billminder4pc.core.cycle.BillCycles
 import com.sysadmindoc.billminder4pc.core.cycle.CycleEngine
+import com.sysadmindoc.billminder4pc.core.cycle.HolidayCalendar
 import com.sysadmindoc.billminder4pc.core.model.Bill
 import com.sysadmindoc.billminder4pc.core.model.Payment
 import com.sysadmindoc.billminder4pc.data.AppLogger
@@ -91,7 +92,9 @@ internal fun reminderEventsBetween(
                 maxOf(bill.reminderTiming.days, bill.secondReminderTiming?.days ?: 0)
             }
             val occurrenceStart = eventStartDate.minusDays(1)
-            val occurrenceEnd = eventEndDate.plusDays(latestLeadDays.toLong())
+            val occurrenceEnd = eventEndDate
+                .plusDays(latestLeadDays.toLong())
+                .plusDays(HolidayCalendar.MAX_SHIFT_DAYS)
             BillCycles.unpaidOccurrences(
                 bill = bill,
                 paidKeys = paidByBill[bill.id].orEmpty(),
@@ -99,6 +102,9 @@ internal fun reminderEventsBetween(
                 endInclusive = occurrenceEnd,
                 zone = zone
             ).asSequence().flatMap { cycleDate ->
+                // Count back from the last day the bill can actually be paid. A due date on a
+                // Saturday is no use as a deadline if the bank is shut.
+                val payableDate = HolidayCalendar.previousBusinessDay(cycleDate)
                 buildList {
                     add(
                         ReminderEvent(
@@ -106,7 +112,7 @@ internal fun reminderEventsBetween(
                             cycleDate = cycleDate,
                             kind = ReminderKind.PRIMARY,
                             scheduledAt = reminderInstant(
-                                cycleDate.minusDays(leadDays.toLong()),
+                                payableDate.minusDays(leadDays.toLong()),
                                 zone,
                                 policy.time
                             ),
@@ -122,7 +128,7 @@ internal fun reminderEventsBetween(
                                     cycleDate = cycleDate,
                                     kind = ReminderKind.SECONDARY,
                                     scheduledAt = reminderInstant(
-                                        cycleDate.minusDays(second.days.toLong()),
+                                        payableDate.minusDays(second.days.toLong()),
                                         zone,
                                         policy.time
                                     ),
