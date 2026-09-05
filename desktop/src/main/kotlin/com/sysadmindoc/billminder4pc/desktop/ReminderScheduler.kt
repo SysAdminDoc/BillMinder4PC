@@ -82,10 +82,14 @@ internal fun reminderEventsBetween(
     return bills.asSequence()
         .filter { it.isEnabled }
         .flatMap { bill ->
-            val latestLeadDays = maxOf(
-                bill.reminderTiming.days,
-                bill.secondReminderTiming?.days ?: 0
-            )
+            // An auto-paying bill is not a task, it is something to check. One notice on the day
+            // it is taken, and none of the lead-up, second reminder, or overdue nagging.
+            val leadDays = if (bill.isAutoPay) 0 else bill.reminderTiming.days
+            val latestLeadDays = if (bill.isAutoPay) {
+                0
+            } else {
+                maxOf(bill.reminderTiming.days, bill.secondReminderTiming?.days ?: 0)
+            }
             val occurrenceStart = eventStartDate.minusDays(1)
             val occurrenceEnd = eventEndDate.plusDays(latestLeadDays.toLong())
             BillCycles.unpaidOccurrences(
@@ -102,15 +106,15 @@ internal fun reminderEventsBetween(
                             cycleDate = cycleDate,
                             kind = ReminderKind.PRIMARY,
                             scheduledAt = reminderInstant(
-                                cycleDate.minusDays(bill.reminderTiming.days.toLong()),
+                                cycleDate.minusDays(leadDays.toLong()),
                                 zone,
                                 policy.time
                             ),
-                            daysBeforeDue = bill.reminderTiming.days
+                            daysBeforeDue = leadDays
                         )
                     )
                     bill.secondReminderTiming
-                        ?.takeIf { it.days != bill.reminderTiming.days }
+                        ?.takeIf { !bill.isAutoPay && it.days != bill.reminderTiming.days }
                         ?.let { second ->
                             add(
                                 ReminderEvent(
@@ -126,7 +130,7 @@ internal fun reminderEventsBetween(
                                 )
                             )
                         }
-                    if (policy.includeOverdue) {
+                    if (policy.includeOverdue && !bill.isAutoPay) {
                         add(
                             ReminderEvent(
                                 bill = bill,

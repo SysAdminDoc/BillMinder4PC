@@ -84,10 +84,10 @@ private const val FINAL_HOURS = 24L
  * Both follow-ups are measured from the first dismissal, so pushing the four-hour one away late
  * does not push the last one a further day out. An overdue reminder does not cascade: it is
  * already the end of the line, and a reminder the user cannot clear is a reminder they learn to
- * ignore.
+ * ignore. Neither does an auto-paying bill, which was never asking the user to do anything.
  */
 fun ReminderAlert.escalate(now: Instant): Pair<ReminderAlert, Instant>? {
-    if (kind == ReminderKind.OVERDUE) return null
+    if (kind == ReminderKind.OVERDUE || isAutoPay) return null
     val firstDismissal = dismissedAt ?: now
     val wakeAt = when (escalationLevel) {
         0 -> firstDismissal.plus(FOLLOW_UP_HOURS, ChronoUnit.HOURS)

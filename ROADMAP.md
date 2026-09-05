@@ -65,13 +65,6 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: one toggle blanks amounts across the UI; a second replaces toast name and amount with neutral text.
   Complexity: S
 
-- [ ] P1: **Autopay-aware reminder softness.**
-  Why: autopay bills need a "verify it went through" notice, not a nag with escalation; manual bills need the hard path. The flag already exists on the model.
-  Evidence: SubTrackr's autopay flag; `Bill.isAutoPay`; Android vacation mode only suppresses autopay bills.
-  Touches: scheduler/toast layer, `BillsScreen` badges.
-  Acceptance: an autopay bill fires a single FYI notice on the due day with no cascade; a manual bill keeps the full escalation.
-  Complexity: S
-
 - [ ] P2: **Port the quick-add templates and merchant normalizer.**
   Why: 28 templates and a 400-alias normalizer make entry, autocomplete, and import cleanup free, and they feed the planned keyboard-first bar.
   Evidence: `C:\repos\BillMinder\...\data\BillTemplates.kt` and `MerchantNormalizer.kt`, both pure JVM with tests.

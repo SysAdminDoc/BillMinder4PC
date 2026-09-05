@@ -13,7 +13,10 @@ All notable changes to this project are recorded here.
 
 - Start when I sign in works. It registers a per-user Task Scheduler entry with the battery conditions switched off, which is what otherwise stops a task from ever running on a machine that uses Modern Standby. Turning it off removes the entry, and the checkbox reflects the task that actually exists rather than what was last clicked.
 
+- A bill marked as paying automatically gets one notice on the day the money leaves, so you can check it went through. No lead-up reminder, no second reminder, no overdue notice, and dismissing it ends it instead of starting the four-hour cascade. Bills you pay by hand are unchanged.
+
 ### Fixed
+- The calendar resolved occurrences in the system time zone while the ledger used the app's, so the two could disagree about which day a bill fell on.
 - Total due counts every outstanding cycle. A bill three months in arrears owed one month's amount on the header and now owes three. The ledger header also shows what the calendar month bills in total, paid or not.
 
 ### Changed
