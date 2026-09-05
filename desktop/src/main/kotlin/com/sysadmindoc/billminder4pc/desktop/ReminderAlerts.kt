@@ -108,8 +108,16 @@ fun ReminderAlert.escalate(now: Instant): Pair<ReminderAlert, Instant>? {
  * Deliberately free of timers. A snooze records the wall-clock instant it should reappear and
  * [tick] promotes it, because Windows relative timers do not count Modern Standby time and a
  * one-hour snooze taken before the machine sleeps has to fire on wake, not an hour after it.
+ *
+ * Every mutator is synchronised. Dismiss and snooze arrive on the AWT event thread from the
+ * reminder pane while submit, tick and settle arrive from three separate coroutines, and each is a
+ * read-modify-write across the same three collections. Unlocked, a dismissal racing a tick puts a
+ * terminally dismissed reminder back on screen, and a defer racing a tick drops a snoozed one that
+ * the scheduler will never emit again.
  */
 class ReminderAlertQueue {
+
+    private val lock = Any()
 
     private val _pending = MutableStateFlow<List<ReminderAlert>>(emptyList())
     val pending: StateFlow<List<ReminderAlert>> = _pending.asStateFlow()
@@ -124,25 +132,31 @@ class ReminderAlertQueue {
 
     /** Queues [alert] unless it is already waiting, snoozed, or was dismissed in this session. */
     fun submit(alert: ReminderAlert) {
-        val id = alert.id
-        if (id in handled || id in snoozed) return
-        if (_pending.value.any { it.id == id }) return
-        _pending.value = _pending.value + alert
-        publish()
+        synchronized(lock) {
+            val id = alert.id
+            if (id in handled || id in snoozed) return
+            if (_pending.value.any { it.id == id }) return
+            _pending.value = _pending.value + alert
+            publish()
+        }
     }
 
     /** Removes the reminder for good. It will not return until the app restarts. */
     fun dismiss(id: ReminderAlertId) {
-        handled += id
-        snoozed.remove(id)
-        _pending.value = _pending.value.filterNot { it.id == id }
-        publish()
+        synchronized(lock) {
+            handled += id
+            snoozed.remove(id)
+            _pending.value = _pending.value.filterNot { it.id == id }
+            publish()
+        }
     }
 
     /** Hides the reminder until [wakeAt]. A later [tick] brings it back. */
     fun snooze(id: ReminderAlertId, wakeAt: Instant) {
-        val alert = _pending.value.firstOrNull { it.id == id } ?: return
-        defer(alert, wakeAt)
+        synchronized(lock) {
+            val alert = _pending.value.firstOrNull { it.id == id } ?: return
+            deferLocked(alert, wakeAt)
+        }
     }
 
     /**
@@ -150,6 +164,12 @@ class ReminderAlertQueue {
      * uses this to put back a reminder the user dismissed, carrying its new level.
      */
     fun defer(alert: ReminderAlert, wakeAt: Instant) {
+        synchronized(lock) {
+            deferLocked(alert, wakeAt)
+        }
+    }
+
+    private fun deferLocked(alert: ReminderAlert, wakeAt: Instant) {
         val id = alert.id
         if (id in handled) return
         snoozed[id] = SnoozedAlert(alert, wakeAt)
@@ -159,28 +179,58 @@ class ReminderAlertQueue {
 
     /** Promotes every snoozed reminder whose wake time has arrived. */
     fun tick(now: Instant) {
-        val due = snoozed.filterValues { !it.wakeAt.isAfter(now) }
-        if (due.isEmpty()) return
-        due.keys.forEach(snoozed::remove)
-        _pending.value = _pending.value + due.values.map { it.alert }
-        publish()
+        synchronized(lock) {
+            val due = snoozed.filterValues { !it.wakeAt.isAfter(now) }
+            if (due.isEmpty()) return
+            due.keys.forEach(snoozed::remove)
+            _pending.value = _pending.value + due.values.map { it.alert }
+            publish()
+        }
     }
 
     /**
-     * Drops reminders whose cycle has since been paid, or whose bill is gone. A reminder the user
-     * has already acted on must not keep asking.
+     * Reconciles every waiting reminder against the ledger.
+     *
+     * Drops reminders whose cycle has been paid or whose bill is gone, and refreshes the ones that
+     * survive from the live bill. An alert is a snapshot taken when the event fired, and a snoozed
+     * or escalating one can be a day old, so without this the pane could name an amount that mark
+     * paid would not write.
      */
     fun settle(bills: List<Bill>, paidCycleKeys: Map<Long, Set<String>>) {
-        val liveBillIds = bills.mapTo(mutableSetOf()) { it.id }
-        fun stale(alert: ReminderAlert): Boolean =
-            alert.billId !in liveBillIds || alert.cycleKey in paidCycleKeys[alert.billId].orEmpty()
+        synchronized(lock) {
+            val billsById = bills.associateBy { it.id }
 
-        val staleSnoozed = snoozed.filterValues { stale(it.alert) }.keys
-        staleSnoozed.forEach(snoozed::remove)
-        val kept = _pending.value.filterNot(::stale)
-        if (kept.size != _pending.value.size || staleSnoozed.isNotEmpty()) {
-            _pending.value = kept
-            publish()
+            fun refreshed(alert: ReminderAlert): ReminderAlert? {
+                val bill = billsById[alert.billId] ?: return null
+                if (alert.cycleKey in paidCycleKeys[alert.billId].orEmpty()) return null
+                return alert.copy(
+                    billName = bill.name,
+                    amount = bill.amount,
+                    currency = bill.currency,
+                    isVariableAmount = bill.isVariableAmount,
+                    isAutoPay = bill.isAutoPay
+                )
+            }
+
+            var changed = false
+            snoozed.keys.toList().forEach { id ->
+                val held = snoozed.getValue(id)
+                val next = refreshed(held.alert)
+                if (next == null) {
+                    snoozed.remove(id)
+                    changed = true
+                } else if (next != held.alert) {
+                    snoozed[id] = held.copy(alert = next)
+                    changed = true
+                }
+            }
+
+            val kept = _pending.value.mapNotNull(::refreshed)
+            if (kept != _pending.value) {
+                _pending.value = kept
+                changed = true
+            }
+            if (changed) publish()
         }
     }
 

@@ -169,8 +169,15 @@ class AppState(
         }
         scope.launch {
             dashboard.collect { snapshot ->
-                if (snapshot.loaded) {
+                if (!snapshot.loaded) return@collect
+                try {
                     reminderAlerts.settle(snapshot.rows.map { it.bill }, snapshot.paidCycleKeys)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Throwable) {
+                    // Without this the collector dies silently under SupervisorJob and paying a
+                    // bill stops withdrawing its reminder for the rest of the session.
+                    logger.error("Settling reminders against the ledger failed", failure)
                 }
             }
         }
@@ -392,7 +399,11 @@ class AppState(
                 logger.error("Start-at-sign-in change failed", failure)
                 _errorMessage.value =
                     failure.message ?: "Couldn't change the sign-in setting. See the app log."
-                updatePreferences { it.copy(startAtLogin = startupRegistration.isRegistered()) }
+                // Store what the scheduler actually holds. If it could not be asked, leave the
+                // stored value alone rather than guessing in either direction.
+                startupRegistration.isRegistered()?.let { actual ->
+                    updatePreferences { it.copy(startAtLogin = actual) }
+                }
             }
     }
 
@@ -404,7 +415,9 @@ class AppState(
      */
     private fun reconcileStartAtLogin() {
         if (startupRegistration.unavailableReason() != null) return
-        val registered = startupRegistration.isRegistered()
+        // A null answer means Task Scheduler could not be reached. Correcting the setting on that
+        // would silently switch the user's choice off because a service was briefly unavailable.
+        val registered = startupRegistration.isRegistered() ?: return
         if (registered != preferences.value.startAtLogin) {
             logger.info("Start at sign-in was $registered on disk; stored value corrected")
             updatePreferences { it.copy(startAtLogin = registered) }

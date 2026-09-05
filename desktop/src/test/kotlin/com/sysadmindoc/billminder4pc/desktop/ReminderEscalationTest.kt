@@ -43,6 +43,18 @@ class ReminderEscalationTest {
     }
 
     @Test
+    fun `the follow-up carries the first dismissal forward, not the moment it was made`() {
+        // Pins the stamped instant itself. Asserting only wakeAt would still pass if the code
+        // stamped `now`, because at level 0 the two are the same instant.
+        val madeLate = dismissedAt.plus(3, ChronoUnit.HOURS)
+        val (followUp, _) = alert().escalate(dismissedAt)!!
+        assertEquals(dismissedAt, followUp.dismissedAt)
+
+        val (last, _) = followUp.escalate(madeLate)!!
+        assertEquals(dismissedAt, last.dismissedAt)
+    }
+
+    @Test
     fun `the last reminder lands a day after the first dismissal, not a day after the follow-up`() {
         val (followUp, _) = alert().escalate(dismissedAt)!!
         val dismissedLate = dismissedAt.plus(6, ChronoUnit.HOURS)

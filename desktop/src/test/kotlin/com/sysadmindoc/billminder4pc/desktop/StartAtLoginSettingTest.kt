@@ -17,7 +17,7 @@ import java.time.ZoneId
 class StartAtLoginSettingTest {
 
     private class FakeStartupTasks(
-        var registered: Boolean = false,
+        var registered: Boolean? = false,
         var unavailable: StartupRegistration.Unavailable? = null,
         var failWith: String? = null
     ) : StartupTasks {
@@ -59,7 +59,7 @@ class StartAtLoginSettingTest {
         try {
             state.setStartAtLogin(true)
             assertEquals(1, tasks.registerCalls)
-            assertTrue(tasks.registered)
+            assertEquals(true, tasks.registered)
             assertTrue(state.preferences.value.startAtLogin)
         } finally {
             state.close()
@@ -73,7 +73,7 @@ class StartAtLoginSettingTest {
         try {
             state.setStartAtLogin(false)
             assertEquals(1, tasks.unregisterCalls)
-            assertFalse(tasks.registered)
+            assertEquals(false, tasks.registered)
             assertFalse(state.preferences.value.startAtLogin)
         } finally {
             state.close()
@@ -88,6 +88,40 @@ class StartAtLoginSettingTest {
             state.setStartAtLogin(true)
             assertFalse(state.preferences.value.startAtLogin)
             assertEquals("Access is denied.", state.errorMessage.value)
+        } finally {
+            state.close()
+        }
+    }
+
+    @Test
+    fun `a failed removal stores the task that is really still there`() = runBlocking {
+        // Starts stored-off but actually registered, so the corrective write is the only thing
+        // that can produce a true. Without it the checkbox would claim the task is gone.
+        val tasks = FakeStartupTasks(registered = true, failWith = "The service is unavailable.")
+        val store = AppPreferencesStore()
+        val state = state(tasks, store)
+        try {
+            assertTrue(state.preferences.value.startAtLogin)
+            store.update { it.copy(startAtLogin = false) }
+
+            state.setStartAtLogin(false)
+
+            assertEquals("The service is unavailable.", state.errorMessage.value)
+            assertTrue(state.preferences.value.startAtLogin)
+        } finally {
+            state.close()
+        }
+    }
+
+    @Test
+    fun `an unanswerable scheduler leaves the stored setting alone`() = runBlocking {
+        val store = AppPreferencesStore()
+        store.update { it.copy(startAtLogin = true) }
+        // null means the query failed, not that the task is absent. Treating it as absent would
+        // switch the user's setting off because a service was briefly unreachable.
+        val state = state(FakeStartupTasks(registered = null), store)
+        try {
+            assertTrue(state.preferences.value.startAtLogin)
         } finally {
             state.close()
         }

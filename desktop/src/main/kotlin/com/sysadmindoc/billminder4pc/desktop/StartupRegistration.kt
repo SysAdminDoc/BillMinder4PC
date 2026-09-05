@@ -12,7 +12,9 @@ import java.util.concurrent.TimeUnit
  */
 interface StartupTasks {
     fun unavailableReason(): StartupRegistration.Unavailable?
-    fun isRegistered(): Boolean
+
+    /** True registered, false absent, null when Task Scheduler could not be asked. */
+    fun isRegistered(): Boolean?
     fun register(): Result<Unit>
     fun unregister(): Result<Unit>
 }
@@ -125,12 +127,22 @@ object StartupRegistration : StartupTasks {
         append("</Task>")
     }
 
-    /** True when a task of this name exists for the current user. */
-    override fun isRegistered(): Boolean = isRegistered(TASK_NAME)
+    override fun isRegistered(): Boolean? = isRegistered(TASK_NAME)
 
-    fun isRegistered(taskName: String): Boolean {
+    /**
+     * True when the task exists, false when it does not, null when the question could not be
+     * answered.
+     *
+     * `schtasks /query /tn` exits non-zero both for "no such task" and for "the service is
+     * unavailable", and telling them apart by the message would mean parsing localised English.
+     * A second query with no task name settles it: if Task Scheduler can list anything at all it
+     * is reachable, so the first failure really did mean absent. Without this an unreachable
+     * scheduler reads as absent, and the caller helpfully turns the user's setting off.
+     */
+    fun isRegistered(taskName: String): Boolean? {
         if (!isWindows) return false
-        return runSchtasks(listOf("/query", "/tn", taskName)).exitCode == 0
+        if (runSchtasks(listOf("/query", "/tn", taskName)).exitCode == 0) return true
+        return if (runSchtasks(listOf("/query")).exitCode == 0) false else null
     }
 
     /**
@@ -170,7 +182,9 @@ object StartupRegistration : StartupTasks {
 
     fun unregister(taskName: String): Result<Unit> {
         if (!isWindows) return Result.success(Unit)
-        if (!isRegistered(taskName)) return Result.success(Unit)
+        // Only skip the delete when the task is known to be absent. An unanswerable query must
+        // still attempt it, or a scheduler hiccup reports "removed" while the task keeps running.
+        if (isRegistered(taskName) == false) return Result.success(Unit)
         val result = runSchtasks(listOf("/delete", "/tn", taskName, "/f"))
         return if (result.exitCode == 0) {
             Result.success(Unit)
@@ -198,20 +212,34 @@ object StartupRegistration : StartupTasks {
         }
     }
 
+    /**
+     * Runs `schtasks` and gives up after [TIMEOUT_SECONDS].
+     *
+     * The output is drained on its own thread. Reading it inline would block until the child
+     * closes stdout, which makes a later `waitFor` timeout unreachable: a hung `schtasks` would
+     * hang the caller, and both callers run on a UI thread.
+     */
     private fun runSchtasks(arguments: List<String>): SchtasksResult = try {
         val process = ProcessBuilder(listOf("schtasks") + arguments)
             .redirectErrorStream(true)
             .start()
-        val output = process.inputStream.bufferedReader().use { it.readText() }
-        if (!process.waitFor(20, TimeUnit.SECONDS)) {
+        val output = StringBuilder()
+        val drain = Thread {
+            runCatching { process.inputStream.bufferedReader().use { output.append(it.readText()) } }
+        }.apply { isDaemon = true; start() }
+        if (!process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
             process.destroyForcibly()
-            SchtasksResult(-1, "schtasks did not finish within 20 seconds")
+            drain.join(1_000)
+            SchtasksResult(-1, "schtasks did not finish within $TIMEOUT_SECONDS seconds")
         } else {
-            SchtasksResult(process.exitValue(), output)
+            drain.join(1_000)
+            SchtasksResult(process.exitValue(), output.toString())
         }
     } catch (failure: Throwable) {
         SchtasksResult(-1, failure.message ?: failure.javaClass.simpleName)
     }
+
+    private const val TIMEOUT_SECONDS = 20L
 
     private fun escape(value: String): String = value
         .replace("&", "&amp;")

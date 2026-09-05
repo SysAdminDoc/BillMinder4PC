@@ -60,7 +60,7 @@ class StartupRegistrationTest {
         assumeTrue(StartupRegistration.isWindows)
         val taskName = "BillMinder4PC test ${UUID.randomUUID()}"
         val executable = Path.of(System.getProperty("java.home"), "bin", "java.exe")
-        assertFalse(StartupRegistration.isRegistered(taskName))
+        assertEquals(false, StartupRegistration.isRegistered(taskName))
         try {
             val created = StartupRegistration.register(
                 taskName = taskName,
@@ -68,11 +68,11 @@ class StartupRegistrationTest {
                 userId = StartupRegistration.currentUserId()
             )
             assertTrue("register failed: ${created.exceptionOrNull()?.message}", created.isSuccess)
-            assertTrue(StartupRegistration.isRegistered(taskName))
+            assertEquals(true, StartupRegistration.isRegistered(taskName))
         } finally {
             assertTrue(StartupRegistration.unregister(taskName).isSuccess)
         }
-        assertFalse(StartupRegistration.isRegistered(taskName))
+        assertEquals(false, StartupRegistration.isRegistered(taskName))
     }
 
     @Test

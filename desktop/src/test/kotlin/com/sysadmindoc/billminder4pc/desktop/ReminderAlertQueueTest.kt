@@ -126,6 +126,81 @@ class ReminderAlertQueueTest {
     }
 
     @Test
+    fun `settling refreshes a waiting reminder from the live bill`() {
+        val queue = ReminderAlertQueue()
+        queue.submit(alert())
+        // The bill was edited after the reminder fired. The pane must not name an amount that
+        // mark paid would not write.
+        queue.settle(listOf(bill(1).copy(name = "Rent (new lease)", amount = 1_600.0)), emptyMap())
+        assertEquals("Rent (new lease)", queue.current.value?.billName)
+        assertEquals(1_600.0, queue.current.value!!.amount, 0.001)
+    }
+
+    @Test
+    fun `settling refreshes a snoozed reminder too`() {
+        val queue = ReminderAlertQueue()
+        val a = alert()
+        queue.submit(a)
+        val wakeAt = base.plus(1, ChronoUnit.HOURS)
+        queue.snooze(a.id, wakeAt)
+        queue.settle(listOf(bill(1).copy(amount = 1_600.0)), emptyMap())
+
+        queue.tick(wakeAt)
+        assertEquals(1_600.0, queue.current.value!!.amount, 0.001)
+    }
+
+    @Test
+    fun `concurrent dismissal and tick never resurrect a dismissed reminder`() {
+        repeat(200) {
+            val queue = ReminderAlertQueue()
+            val victim = alert(id = 1, kind = ReminderKind.OVERDUE)
+            val other = alert(id = 2)
+            queue.submit(victim)
+            queue.submit(other)
+            queue.snooze(other.id, base.plus(1, ChronoUnit.HOURS))
+
+            val threads = listOf(
+                Thread { queue.dismiss(victim.id) },
+                Thread { queue.tick(base.plus(2, ChronoUnit.HOURS)) }
+            )
+            threads.forEach(Thread::start)
+            threads.forEach(Thread::join)
+
+            assertTrue(
+                "a dismissed reminder came back: ${queue.pending.value.map { it.billId }}",
+                queue.pending.value.none { it.id == victim.id }
+            )
+        }
+    }
+
+    @Test
+    fun `concurrent defer and tick never lose a snoozed reminder`() {
+        repeat(200) {
+            val queue = ReminderAlertQueue()
+            val held = alert(id = 1)
+            val waking = alert(id = 2)
+            queue.submit(held)
+            queue.submit(waking)
+            queue.snooze(waking.id, base)
+
+            val threads = listOf(
+                Thread { queue.defer(held, base.plus(4, ChronoUnit.HOURS)) },
+                Thread { queue.tick(base.plus(1, ChronoUnit.HOURS)) }
+            )
+            threads.forEach(Thread::start)
+            threads.forEach(Thread::join)
+
+            // The woken reminder must be pending; it is in no other collection and the scheduler
+            // will never emit it again.
+            assertTrue(
+                "a woken reminder vanished: ${queue.pending.value.map { it.billId }}",
+                queue.pending.value.any { it.id == waking.id }
+            )
+            assertEquals(1, queue.pending.value.count { it.id == waking.id })
+        }
+    }
+
+    @Test
     fun `settling leaves an unrelated reminder alone`() {
         val queue = ReminderAlertQueue()
         queue.submit(alert(id = 1))

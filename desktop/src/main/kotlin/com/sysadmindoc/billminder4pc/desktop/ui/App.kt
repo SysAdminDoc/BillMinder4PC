@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,14 @@ fun App(
     var section by remember(initialSection) { mutableStateOf(initialSection) }
     val errorMessage by state.errorMessage.collectAsState()
     val noticeMessage by state.noticeMessage.collectAsState()
+    val paymentPrompt by state.paymentPromptRow.collectAsState()
+
+    // The amount form lives on the Bills page. A reminder for a variable bill can arrive while the
+    // user is on Settings, and asking for an amount on a page that cannot show the form is the
+    // same as not asking.
+    LaunchedEffect(paymentPrompt) {
+        if (paymentPrompt != null) section = Section.BILLS
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Row(Modifier.fillMaxSize()) {
