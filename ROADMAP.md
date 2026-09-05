@@ -51,13 +51,6 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: a reminder for a Saturday due date fires on Friday at the user-chosen time.
   Complexity: S
 
-- [ ] P1: **Privacy mode: hide amounts in the UI and mask toast content.**
-  Why: amounts on a shared or streamed desktop screen and in Action Center leak; the Android app ships both masks already.
-  Evidence: Android `SecurityPrefs.maskExternalContent` and `LocalHideAmounts`.
-  Touches: desktop theme/state, the future toast layer.
-  Acceptance: one toggle blanks amounts across the UI; a second replaces toast name and amount with neutral text.
-  Complexity: S
-
 - [ ] P2: **Port the quick-add templates and merchant normalizer.**
   Why: 28 templates and a 400-alias normalizer make entry, autocomplete, and import cleanup free, and they feed the planned keyboard-first bar.
   Evidence: `C:\repos\BillMinder\...\data\BillTemplates.kt` and `MerchantNormalizer.kt`, both pure JVM with tests.

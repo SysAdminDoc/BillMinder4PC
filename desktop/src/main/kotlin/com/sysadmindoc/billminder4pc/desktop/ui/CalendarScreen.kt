@@ -40,7 +40,7 @@ import com.sysadmindoc.billminder4pc.core.model.Bill
 import com.sysadmindoc.billminder4pc.desktop.AppState
 import com.sysadmindoc.billminder4pc.desktop.BillRow
 import com.sysadmindoc.billminder4pc.desktop.Dashboard
-import com.sysadmindoc.billminder4pc.desktop.Format
+import com.sysadmindoc.billminder4pc.desktop.theme.privateAmount
 import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 import java.time.LocalDate
 import java.time.YearMonth
@@ -219,7 +219,7 @@ private fun CalendarDayCell(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        Format.money(entry.bill.amount, entry.bill.currency),
+                        privateAmount(entry.bill.amount, entry.bill.currency),
                         style = MaterialTheme.typography.labelMedium,
                         color = accent
                     )
@@ -323,7 +323,7 @@ private fun AgendaStrip(
                     )
                 }
                 Text(
-                    Format.money(entry.bill.amount, entry.bill.currency),
+                    privateAmount(entry.bill.amount, entry.bill.currency),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(end = 18.dp)
                 )

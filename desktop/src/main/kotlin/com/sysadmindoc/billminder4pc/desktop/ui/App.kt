@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sysadmindoc.billminder4pc.desktop.AppState
+import com.sysadmindoc.billminder4pc.desktop.theme.LocalHideAmounts
 
 enum class Section(val label: String, val icon: ImageVector) {
     BILLS("Bills", Icons.AutoMirrored.Filled.ReceiptLong),
@@ -55,6 +57,7 @@ fun App(
     val errorMessage by state.errorMessage.collectAsState()
     val noticeMessage by state.noticeMessage.collectAsState()
     val paymentPrompt by state.paymentPromptRow.collectAsState()
+    val preferences by state.preferences.collectAsState()
 
     // The amount form lives on the Bills page. A reminder for a variable bill can arrive while the
     // user is on Settings, and asking for an amount on a page that cannot show the form is the
@@ -63,8 +66,9 @@ fun App(
         if (paymentPrompt != null) section = Section.BILLS
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Row(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalHideAmounts provides preferences.hideAmounts) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Row(Modifier.fillMaxSize()) {
             Sidebar(current = section, onSelect = { section = it })
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when (section) {
@@ -86,6 +90,7 @@ fun App(
                     }
                 }
             }
+        }
         }
     }
 }

@@ -277,6 +277,21 @@ private fun DataPrivacyCard(state: AppState, preferences: AppPreferences, modifi
                 modifier = Modifier.weight(1f)
             )
         }
+        SettingRow("Hide amounts", "Blank every amount in the window.") {
+            SquareCheck(
+                preferences.hideAmounts,
+                { value -> state.updatePreferences { it.copy(hideAmounts = value) } },
+                "Hide amounts"
+            )
+        }
+        SettingDivider()
+        SettingRow("Private notifications", "Keep the bill and amount out of tray alerts.") {
+            SquareCheck(
+                preferences.maskNotifications,
+                { value -> state.updatePreferences { it.copy(maskNotifications = value) } },
+                "Private notifications"
+            )
+        }
         Spacer(Modifier.height(8.dp))
         val snapshots = remember(preferences.lastBackupAt) { state.snapshots() }
         if (snapshots.isEmpty()) {

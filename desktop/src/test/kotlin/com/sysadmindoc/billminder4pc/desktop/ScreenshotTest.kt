@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -278,6 +279,35 @@ class ScreenshotTest {
     }
 
     @Test
+    fun `hiding amounts changes what the ledger actually renders`() = runBlocking {
+        // The masking helper is unit tested on its own, but that says nothing about whether the
+        // composition local reaches the screens. Rendering the same page twice and requiring the
+        // pixels to differ is what proves the wiring, and it fails if the provider is removed.
+        val plain = seededFixture("privacy-plain", Section.BILLS)
+        val plainBytes = try {
+            requireNotNull(plain.scene.render().encodeToData(EncodedImageFormat.PNG)).bytes
+        } finally {
+            plain.close()
+        }
+
+        val masked = seededFixture("privacy-masked", Section.BILLS, hideAmounts = true)
+        val maskedBytes = try {
+            val data = requireNotNull(masked.scene.render().encodeToData(EncodedImageFormat.PNG))
+            val outDir = File(System.getProperty("billminder4pc.screenshotDir") ?: "build/screenshots")
+            outDir.mkdirs()
+            File(outDir, "bills-amounts-hidden.png").writeBytes(data.bytes)
+            data.bytes
+        } finally {
+            masked.close()
+        }
+
+        assertFalse(
+            "hiding amounts did not change the rendered ledger",
+            plainBytes.contentEquals(maskedBytes)
+        )
+    }
+
+    @Test
     fun `failed write renders an in-app error banner`() = runBlocking {
         val fixture = seededFixture("write-error-state")
         val spotify = fixture.dashboard.rows.single { it.bill.name == "Spotify" }
@@ -360,7 +390,8 @@ class ScreenshotTest {
     private suspend fun seededFixture(
         folder: String,
         section: Section = Section.BILLS,
-        themeMode: ThemeMode = ThemeMode.DARK
+        themeMode: ThemeMode = ThemeMode.DARK,
+        hideAmounts: Boolean = false
     ): SceneFixture {
         val db = DatabaseFactory.openInMemory()
         val directory = temporaryFolder.newFolder(folder).toPath()
@@ -374,7 +405,7 @@ class ScreenshotTest {
         )
         val zone = ZoneId.of("UTC")
         val preferencesStore = AppPreferencesStore().also { store ->
-            store.update { it.copy(themeMode = themeMode) }.getOrThrow()
+            store.update { it.copy(themeMode = themeMode, hideAmounts = hideAmounts) }.getOrThrow()
         }
         val state = AppState(
             db = db,

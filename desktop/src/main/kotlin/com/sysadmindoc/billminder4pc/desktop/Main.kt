@@ -142,8 +142,11 @@ fun main() {
                 state.alertBalloons.collect { alert ->
                     trayState.sendNotification(
                         Notification(
-                            title = alert.title(),
-                            message = alert.body(state.dashboard.value.asOfDate),
+                            title = alert.externalTitle(preferences.maskNotifications),
+                            message = alert.externalBody(
+                                state.dashboard.value.asOfDate,
+                                preferences.maskNotifications
+                            ),
                             type = if (alert.kind == ReminderKind.OVERDUE) {
                                 Notification.Type.Error
                             } else {

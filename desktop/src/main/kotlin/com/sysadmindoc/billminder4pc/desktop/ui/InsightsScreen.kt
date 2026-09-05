@@ -39,7 +39,7 @@ import com.sysadmindoc.billminder4pc.core.cycle.CycleEngine
 import com.sysadmindoc.billminder4pc.core.model.BillCategory
 import com.sysadmindoc.billminder4pc.desktop.AppState
 import com.sysadmindoc.billminder4pc.desktop.Dashboard
-import com.sysadmindoc.billminder4pc.desktop.Format
+import com.sysadmindoc.billminder4pc.desktop.theme.privateAmount
 import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -136,7 +136,7 @@ private fun InsightSummary(scheduled: Double, paid: Double, remaining: Double) {
 private fun InsightMetric(label: String, amount: Double, color: Color, modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            Format.money(amount),
+            privateAmount(amount),
             style = MaterialTheme.typography.headlineMedium,
             color = color,
             fontWeight = FontWeight.Bold
@@ -177,7 +177,7 @@ private fun CategoryCard(categories: List<CategoryTotal>, total: Double, modifie
                         )
                     }
                     Text(
-                        Format.money(category.amount),
+                        privateAmount(category.amount),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.width(80.dp).padding(start = 10.dp)
                     )
@@ -187,7 +187,7 @@ private fun CategoryCard(categories: List<CategoryTotal>, total: Double, modifie
             Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline))
             Row(Modifier.fillMaxWidth().padding(top = 9.dp)) {
                 Text("Total", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                Text(Format.money(total), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(privateAmount(total), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -350,7 +350,7 @@ private fun OutlookCard(
                 Text("Largest bill", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    largest?.let { "${it.bill.name} · ${Format.money(it.bill.amount, it.bill.currency)}" } ?: "None",
+                    largest?.let { "${it.bill.name} · ${privateAmount(it.bill.amount, it.bill.currency)}" } ?: "None",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )

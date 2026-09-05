@@ -24,6 +24,7 @@ import com.sysadmindoc.billminder4pc.desktop.Format
 import com.sysadmindoc.billminder4pc.desktop.ReminderAlert
 import com.sysadmindoc.billminder4pc.desktop.ReminderKind
 import com.sysadmindoc.billminder4pc.desktop.SnoozeChoice
+import com.sysadmindoc.billminder4pc.desktop.theme.privateAmount
 import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 import java.time.LocalDate
 
@@ -70,7 +71,7 @@ fun ReminderPane(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = Format.money(alert.amount, alert.currency),
+                        text = privateAmount(alert.amount, alert.currency),
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onBackground
                     )

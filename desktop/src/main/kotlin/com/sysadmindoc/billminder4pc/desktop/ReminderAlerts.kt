@@ -1,6 +1,7 @@
 package com.sysadmindoc.billminder4pc.desktop
 
 import com.sysadmindoc.billminder4pc.core.model.Bill
+import com.sysadmindoc.billminder4pc.core.privacy.PrivacyText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +51,21 @@ data class ReminderAlert(
         val suffix = if (isAutoPay) " (auto-pay)" else ""
         return "$billName · ${Format.money(amount, currency)}$suffix"
     }
+
+    /**
+     * Headline for a notification, which outlives the moment on the lock screen and in the Action
+     * Center history. Masked, it names neither the bill nor the amount.
+     */
+    fun externalTitle(masked: Boolean): String =
+        if (masked) {
+            PrivacyText.HIDDEN_BILL_NAME
+        } else {
+            title()
+        }
+
+    /** Body for a notification. The due state is safe; the amount is not. */
+    fun externalBody(today: LocalDate, masked: Boolean): String =
+        if (masked) PrivacyText.HIDDEN_EXTERNAL_AMOUNT else body(today)
 
     /** Plain-language due state, sharing one wording with the ledger. */
     fun body(today: LocalDate): String = Format.relativeDue(cycleDate, today)

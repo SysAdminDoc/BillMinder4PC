@@ -53,6 +53,7 @@ import com.sysadmindoc.billminder4pc.desktop.BillRow
 import com.sysadmindoc.billminder4pc.desktop.Dashboard
 import com.sysadmindoc.billminder4pc.desktop.Format
 import com.sysadmindoc.billminder4pc.desktop.theme.CategoryColors
+import com.sysadmindoc.billminder4pc.desktop.theme.privateAmount
 import com.sysadmindoc.billminder4pc.desktop.theme.storedBillColor
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -187,12 +188,12 @@ private fun BillsSummary(dashboard: Dashboard) {
             Column(Modifier.width(210.dp)) {
                 Text("Total due", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    Format.money(dashboard.totalDue),
+                    privateAmount(dashboard.totalDue),
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    "${Format.money(dashboard.monthTotal)} billed this month",
+                    "${privateAmount(dashboard.monthTotal)} billed this month",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -302,7 +303,7 @@ private fun AttentionBillRow(
                 )
             }
             Text(
-                Format.money(row.bill.amount, row.bill.currency),
+                privateAmount(row.bill.amount, row.bill.currency),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(end = 18.dp)
             )
@@ -399,7 +400,7 @@ private fun BillTableRow(
             }
         }
         Text(
-            Format.money(row.bill.amount, row.bill.currency),
+            privateAmount(row.bill.amount, row.bill.currency),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.width(92.dp)
         )
@@ -600,7 +601,7 @@ private fun PaymentAmountOverlay(
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Record ${row.bill.name} payment", style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    "Enter the amount paid. The saved estimate is ${Format.money(row.bill.amount, row.bill.currency)}.",
+                    "Enter the amount paid. The saved estimate is ${privateAmount(row.bill.amount, row.bill.currency)}.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(

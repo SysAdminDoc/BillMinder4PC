@@ -25,7 +25,11 @@ data class AppPreferences(
     val startAtLogin: Boolean = false,
     val keepRunningInTray: Boolean = true,
     val launchSection: String = "BILLS",
-    val lastBackupAt: String = "Not yet"
+    val lastBackupAt: String = "Not yet",
+    /** Blank every amount inside the window, for a shared or streamed screen. */
+    val hideAmounts: Boolean = false,
+    /** Keep the bill's name and amount out of tray notifications. */
+    val maskNotifications: Boolean = false
 )
 
 /** Small properties-backed settings store. Tests use the in-memory form. */
@@ -61,7 +65,9 @@ class AppPreferencesStore(
                 startAtLogin = properties.getProperty("startAtLogin")?.toBooleanStrictOrNull() ?: false,
                 keepRunningInTray = properties.getProperty("keepRunningInTray")?.toBooleanStrictOrNull() ?: true,
                 launchSection = properties.getProperty("launchSection") ?: "BILLS",
-                lastBackupAt = properties.getProperty("lastBackupAt") ?: "Not yet"
+                lastBackupAt = properties.getProperty("lastBackupAt") ?: "Not yet",
+                hideAmounts = properties.getProperty("hideAmounts")?.toBooleanStrictOrNull() ?: false,
+                maskNotifications = properties.getProperty("maskNotifications")?.toBooleanStrictOrNull() ?: false
             ).normalized()
         }.onFailure { logger.error("Loading app preferences failed", it) }
             .getOrDefault(AppPreferences())
@@ -81,6 +87,8 @@ class AppPreferencesStore(
             setProperty("keepRunningInTray", preferences.keepRunningInTray.toString())
             setProperty("launchSection", preferences.launchSection)
             setProperty("lastBackupAt", preferences.lastBackupAt)
+            setProperty("hideAmounts", preferences.hideAmounts.toString())
+            setProperty("maskNotifications", preferences.maskNotifications.toString())
         }
         Files.newBufferedWriter(temporary).use { properties.store(it, "BillMinder for PC settings") }
         runCatching {
