@@ -150,7 +150,7 @@ Added 2026-08-31 from the ecosystem research pass (details and sources in RESEAR
   Acceptance: paying half leaves the cycle outstanding showing the remainder; paying the rest settles it; the round-trip fixture covers it.
   Complexity: L
 
-### Added 2026-09-04 (cross-platform parity pass)
+### Added 2026-09-05 (cross-platform parity pass)
 
 This pass compared this repo against the Android sibling file by file. Details, evidence, and the full drift list are in RESEARCH.md.
 
@@ -165,7 +165,7 @@ Notes on existing items, so they are not re-filed as new ones:
 
 - [ ] P1: **Mirror the parity contract and enforce it at build time.**
   Why: `core/.../model/Bill.kt` calls the schema an interchange contract in a comment, `CLAUDE.md` calls the ported tests a drift detector, and neither is checked by anything. `BillCycles` diverged from the Android copy without anyone noticing, and this repo has also accumulated inherited dead API that copying source moves along silently.
-  Evidence: 2026-09-04 diff. `ResolvedBillCycle`, `CycleRangeSnapshot`, `currentCycles()` and `rangeSnapshot()` exist only on Android; `paidKeys()` and `unpaidOccurrences()` only here. Inherited but unreferenced here: `SortMode`, `BillCategory.fromLabel`, `PayeeDraft`/`PayeeMath`, `CycleEngine.parseCycleKey`, `CycleEngine.cycleKeyForInstant`, `Format.monthLabel`, `AppPaths.attachmentsDir`, `BillDao.observePayees`/`allPayees`/`payeesFor`, `BillRepository.observePayees`/`updateBill`/`deleteBill`, and a `kotlinx-serialization-json` dependency with no `@Serializable` in the module.
+  Evidence: 2026-09-05 diff. `ResolvedBillCycle`, `CycleRangeSnapshot`, `currentCycles()` and `rangeSnapshot()` exist only on Android; `paidKeys()` and `unpaidOccurrences()` only here. Inherited but unreferenced here: `SortMode`, `BillCategory.fromLabel`, `PayeeDraft`/`PayeeMath`, `CycleEngine.parseCycleKey`, `CycleEngine.cycleKeyForInstant`, `Format.monthLabel`, `AppPaths.attachmentsDir`, `BillDao.observePayees`/`allPayees`/`payeesFor`, `BillRepository.observePayees`/`updateBill`/`deleteBill`, and a `kotlinx-serialization-json` dependency with no `@Serializable` in the module.
   Touches: a tracked `PARITY.md` listing every mirrored file with an owning repo and a normalized SHA-256; a `parityCheck` Gradle task that strips the package declaration and trailing whitespace before hashing; the same file and task in the Android repo.
   Acceptance: `gradlew parityCheck` passes on a clean tree and fails by name when one line of `core/.../cycle/CycleEngine.kt` changes without the manifest; the manifest records an owning repo per file so this repo's own originals (the day-change signal, `AppLogger`, the light theme) are not reported as drift.
   Complexity: M
@@ -237,7 +237,7 @@ Notes on existing items, so they are not re-filed as new ones:
 
 - [ ] P2: **Correct the ported-test count in the documents.**
   Why: `README.md`, `CHANGELOG.md`, and `CLAUDE.md` all say the ported recurrence engine carries 27 tests, and the figure is used as the evidence that the port is complete. `CycleEngineTest` has 25 methods; the 27 is the whole `:core` module including `PayeeMathTest`.
-  Evidence: `core/src/test/.../CycleEngineTest.kt` and `core/src/test/.../model/PayeeMathTest.kt` method counts on 2026-09-04.
+  Evidence: `core/src/test/.../CycleEngineTest.kt` and `core/src/test/.../model/PayeeMathTest.kt` method counts on 2026-09-05.
   Touches: `README.md`, `CHANGELOG.md` v0.1.0 entry, `CLAUDE.md`.
   Acceptance: every sentence attributes its count to the right scope, and the parity manifest is what the documents point at for completeness rather than a number in prose.
   Complexity: S
