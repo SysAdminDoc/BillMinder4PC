@@ -42,6 +42,7 @@ Version 0.2.1 is an early but usable desktop build. Bills, Calendar, Insights, a
 - A wall-clock reminder scheduler that catches events crossed while Windows was asleep
 - Tray balloons and an always-on-top reminder pane with mark paid, snooze, and dismiss
 - Snoozes measured against the wall clock, so one taken before the machine sleeps fires on wake
+- A start-at-sign-in option that registers a Task Scheduler entry, so reminders arrive without opening the window
 
 ## What's coming
 

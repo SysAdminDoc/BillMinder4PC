@@ -160,12 +160,16 @@ private fun RemindersCard(state: AppState, preferences: AppPreferences, modifier
 @Composable
 private fun AppBehaviorCard(state: AppState, preferences: AppPreferences, modifier: Modifier) {
     SettingsCard("App behavior", modifier) {
-        SettingRow("Start when I sign in", "Available with the Windows reminder service.") {
+        val startupBlocked = state.startupUnavailableMessage
+        SettingRow(
+            "Start when I sign in",
+            startupBlocked ?: "Reminders arrive even if you never open the window."
+        ) {
             SquareCheck(
                 checked = preferences.startAtLogin,
-                onCheckedChange = {},
+                onCheckedChange = { value -> state.setStartAtLogin(value) },
                 contentDescription = "Start when I sign in",
-                enabled = false
+                enabled = startupBlocked == null
             )
         }
         SettingDivider()

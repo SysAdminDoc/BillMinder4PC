@@ -90,7 +90,8 @@ class AppState(
     dayChangeSignals: Flow<Unit> = minuteSignals(),
     reminderTickSignals: Flow<Unit> = schedulerSignals(),
     private val preferencesStore: AppPreferencesStore = AppPreferencesStore(),
-    private val logger: AppLogger = AppLogger()
+    private val logger: AppLogger = AppLogger(),
+    private val startupRegistration: StartupTasks = StartupRegistration
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -170,6 +171,7 @@ class AppState(
                 }
             }
         }
+        reconcileStartAtLogin()
     }
 
     /**
@@ -337,6 +339,43 @@ class AppState(
             .onFailure {
                 _errorMessage.value = "Couldn't save settings. Details were written to the app log."
             }
+    }
+
+    /** Why starting at sign-in cannot be offered here, or null when it can. */
+    val startupUnavailableMessage: String? = startupRegistration.unavailableReason()?.message
+
+    /**
+     * Registers or removes the sign-in task, then stores what actually happened rather than what
+     * was asked for. A checkbox that stays on after the registration failed is a lie.
+     */
+    fun setStartAtLogin(enabled: Boolean) {
+        val outcome = if (enabled) startupRegistration.register() else startupRegistration.unregister()
+        outcome
+            .onSuccess {
+                updatePreferences { it.copy(startAtLogin = enabled) }
+                logger.info("Start at sign-in ${if (enabled) "registered" else "removed"}")
+            }
+            .onFailure { failure ->
+                logger.error("Start-at-sign-in change failed", failure)
+                _errorMessage.value =
+                    failure.message ?: "Couldn't change the sign-in setting. See the app log."
+                updatePreferences { it.copy(startAtLogin = startupRegistration.isRegistered()) }
+            }
+    }
+
+    /**
+     * Brings the stored preference back in line with the task that actually exists.
+     *
+     * Asks the registration directly rather than reading [startupUnavailableMessage]: this runs
+     * from the constructor, and that property is declared later, so it is still null here.
+     */
+    private fun reconcileStartAtLogin() {
+        if (startupRegistration.unavailableReason() != null) return
+        val registered = startupRegistration.isRegistered()
+        if (registered != preferences.value.startAtLogin) {
+            logger.info("Start at sign-in was $registered on disk; stored value corrected")
+            updatePreferences { it.copy(startAtLogin = registered) }
+        }
     }
 
     fun addBill(bill: Bill, onSaved: (() -> Unit)? = null) {

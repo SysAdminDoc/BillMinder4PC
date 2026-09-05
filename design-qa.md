@@ -33,7 +33,7 @@ Each half remains at its full 1120 x 760 pixel size in the combined evidence. Fo
 - [P3] The source mockups carry a faint luminous background treatment. The implementation uses flat navy tokens. This follows the design brief's no-gradient direction and keeps native surfaces consistent.
 - [P3] Native Compose text rasterization and Material icon stroke weight differ slightly from the rendered mockups. Family, hierarchy, size, weight, and alignment remain equivalent.
 - Expected data difference: Calendar includes the seeded paid Car insurance occurrence, which the source mockup omitted. Keeping real ledger data is preferable to hiding it for the capture.
-- Expected state difference: Start when I sign in is visibly disabled until the Windows reminder service is installed. The source showed it enabled, but the implementation does not present a non-working control as active.
+- Expected state difference: Start when I sign in is disabled in a development build, because the control registers a Task Scheduler entry pointing at the installed executable and a Gradle run has none. It is live in the installed app, and the subtitle says which case the reader is looking at.
 
 ## Required fidelity surfaces
 

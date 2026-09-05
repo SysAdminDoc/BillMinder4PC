@@ -11,8 +11,11 @@ All notable changes to this project are recorded here.
 - Reminders withdraw themselves. Paying a bill anywhere in the app, or deleting it, clears any reminder still waiting for that cycle.
 - A dismissed reminder for an unpaid bill comes back once after four hours and once a day after that first dismissal, then stops asking. Both follow-ups are measured from the original dismissal, so pushing the first one away late doesn't push the last one a further day out. An overdue reminder doesn't cascade, and settling the bill ends the sequence immediately.
 
+- Start when I sign in works. It registers a per-user Task Scheduler entry with the battery conditions switched off, which is what otherwise stops a task from ever running on a machine that uses Modern Standby. Turning it off removes the entry, and the checkbox reflects the task that actually exists rather than what was last clicked.
+
 ### Changed
 - Reminder events used to be written to the log and nowhere else.
+- The Start-when-I-sign-in checkbox used to be permanently disabled. In a development build it still is, because there is no installed executable to point the task at, and the row now says so.
 
 ## [0.2.1] - 2026-08-31
 
