@@ -43,6 +43,7 @@ Version 0.2.1 is an early but usable desktop build. Bills, Calendar, Insights, a
 - Tray balloons and an always-on-top reminder pane with mark paid, snooze, and dismiss
 - Snoozes measured against the wall clock, so one taken before the machine sleeps fires on wake
 - A start-at-sign-in option that registers a Task Scheduler entry, so reminders arrive without opening the window
+- Daily rolling backups of the database, each verified by reopening it, with a restore that keeps a copy of what it replaced
 
 ## What's coming
 

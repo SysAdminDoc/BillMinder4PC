@@ -13,6 +13,7 @@ All notable changes to this project are recorded here.
 
 - Start when I sign in works. It registers a per-user Task Scheduler entry with the battery conditions switched off, which is what otherwise stops a task from ever running on a machine that uses Modern Standby. Turning it off removes the entry, and the checkbox reflects the task that actually exists rather than what was last clicked.
 
+- The app keeps a rolling set of database backups, one a day, seven deep. Each is verified by reopening it and reading from it, and one that won't open is thrown away rather than counted, so the rotation can't quietly fill up with unusable files. Settings lists the recent ones and can put one back, copying aside whatever it replaces first.
 - A bill marked as paying automatically gets one notice on the day the money leaves, so you can check it went through. No lead-up reminder, no second reminder, no overdue notice, and dismissing it ends it instead of starting the four-hour cascade. Bills you pay by hand are unchanged.
 
 ### Fixed

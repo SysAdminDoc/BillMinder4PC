@@ -37,13 +37,6 @@ Things a phone app structurally cannot do. This is where the app stops being a p
 
 Added 2026-08-31 from the ecosystem research pass (details and sources in RESEARCH.md). Ordered by priority; these slot in alongside the blocks above rather than replacing them.
 
-- [ ] P1: **Automatic rolling backups with restore.**
-  Why: the category's recurring catastrophe is stranded bill history (Prism, return7's BillMinder, Mint); the single-file design is only a selling point when it is snapshotted and restorable.
-  Evidence: Apple Community thread 255168571 ("I have lost all of my bill history now 3 times"); the Android roadmap plans the same.
-  Touches: `data` module (`VACUUM INTO` through the bundled driver), settings page, `AppPaths`.
-  Acceptance: a daily snapshot rotation (keep N) that verifies each snapshot by reopening it read-only, plus a settings restore path that backs up the live file before replacing it.
-  Complexity: M
-
 - [ ] P1: **Since-last-run catch-up dialog.**
   Why: a desktop app is closed or asleep most of the time; everything that came due while away needs one non-modal triage surface. GnuCash's Since Last Run assistant is the proven model and Money Manager Ex's modal-per-item cascade is the proven anti-pattern.
   Evidence: GnuCash SLR manual; moneymanagerex #7703.

@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +44,10 @@ import com.sysadmindoc.billminder4pc.desktop.APP_VERSION
 import com.sysadmindoc.billminder4pc.desktop.AppPreferences
 import com.sysadmindoc.billminder4pc.desktop.AppState
 import com.sysadmindoc.billminder4pc.desktop.ThemeMode
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import com.sysadmindoc.billminder4pc.data.AppPaths
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
@@ -273,6 +278,40 @@ private fun DataPrivacyCard(state: AppState, preferences: AppPreferences, modifi
             )
         }
         Spacer(Modifier.height(8.dp))
+        val snapshots = remember(preferences.lastBackupAt) { state.snapshots() }
+        if (snapshots.isEmpty()) {
+            Text(
+                "No automatic backups yet. One is taken each day the app runs.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Text(
+                "Automatic backups",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            snapshots.take(3).forEach { snapshot ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        snapshotLabel(snapshot.takenAt),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ActionButton(
+                        "Restore",
+                        onClick = { state.requestRestore(snapshot.file) },
+                        primary = false
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
         ActionButton(
             "Import Android backup · Planned",
             onClick = {},
@@ -406,3 +445,9 @@ private fun formatDays(days: Int): String = when (days) {
     30 -> "1 month before"
     else -> "$days days before"
 }
+
+private val snapshotFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d 'at' h:mm a", Locale.US)
+
+private fun snapshotLabel(takenAt: Instant): String =
+    snapshotFormatter.format(takenAt.atZone(ZoneId.systemDefault()))

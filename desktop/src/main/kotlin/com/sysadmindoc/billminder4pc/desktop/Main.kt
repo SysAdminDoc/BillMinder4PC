@@ -17,6 +17,7 @@ import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import com.sysadmindoc.billminder4pc.data.AppLogger
 import com.sysadmindoc.billminder4pc.data.AppPaths
+import com.sysadmindoc.billminder4pc.data.SnapshotStore
 import com.sysadmindoc.billminder4pc.desktop.theme.BillMinderTheme
 import com.sysadmindoc.billminder4pc.desktop.ui.App
 import com.sysadmindoc.billminder4pc.desktop.ui.ReminderPane
@@ -106,10 +107,12 @@ fun main() {
 
     val instanceGuard = requireNotNull(acquiredGuard)
     val db = requireNotNull(databaseResult).getOrThrow()
+    val snapshotStore = SnapshotStore(logger = logger)
     val state = AppState(
         db = db,
         preferencesStore = AppPreferencesStore(AppPaths.preferencesFile, logger),
-        logger = logger
+        logger = logger,
+        snapshotStore = snapshotStore
     )
 
     logger.info("BillMinder for PC $APP_VERSION; data directory ${AppPaths.dataDir}")
@@ -154,6 +157,28 @@ fun main() {
             LaunchedEffect(instanceGuard) {
                 instanceGuard.activationRequests.collect {
                     showWindow()
+                }
+            }
+
+            // Restoring means putting a different file where the open database is, so the app has
+            // to let go of it first and then stop. The next launch opens the restored data.
+            LaunchedEffect(state) {
+                state.restoreRequest.collect { file ->
+                    if (file == null) return@collect
+                    state.close()
+                    db.close()
+                    val outcome = snapshotStore.restore(file)
+                    if (outcome.isSuccess) {
+                        logger.info("Restored ${file.fileName}; exiting so the new file is opened cleanly")
+                        instanceGuard.close()
+                        exitApplication()
+                    } else {
+                        logger.error(
+                            "Restore failed",
+                            outcome.exceptionOrNull() ?: IllegalStateException("unknown")
+                        )
+                        state.cancelRestore()
+                    }
                 }
             }
             // Compose issue 4231 requires this AWT foreground request outside the Window content.

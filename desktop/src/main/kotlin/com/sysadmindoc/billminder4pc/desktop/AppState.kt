@@ -10,6 +10,9 @@ import com.sysadmindoc.billminder4pc.data.AppPaths
 import com.sysadmindoc.billminder4pc.data.BillDatabase
 import com.sysadmindoc.billminder4pc.data.BillRepository
 import com.sysadmindoc.billminder4pc.data.DatabaseFactory
+import com.sysadmindoc.billminder4pc.data.Snapshot
+import com.sysadmindoc.billminder4pc.data.SnapshotStore
+import java.nio.file.Path
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -94,7 +97,12 @@ class AppState(
     reminderTickSignals: Flow<Unit> = schedulerSignals(),
     private val preferencesStore: AppPreferencesStore = AppPreferencesStore(),
     private val logger: AppLogger = AppLogger(),
-    private val startupRegistration: StartupTasks = StartupRegistration
+    private val startupRegistration: StartupTasks = StartupRegistration,
+    /**
+     * Null in tests. A real store writes into the user's data directory, and a test that
+     * constructs [AppState] should not leave snapshots in `%LOCALAPPDATA%`.
+     */
+    private val snapshotStore: SnapshotStore? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -179,6 +187,11 @@ class AppState(
                     // bill stops withdrawing its reminder for the rest of the session.
                     logger.error("Settling reminders against the ledger failed", failure)
                 }
+            }
+        }
+        snapshotStore?.let { store ->
+            scope.launch {
+                store.snapshotIfDue(db)?.let { logger.info("Rolling snapshot ${it.file.fileName}") }
             }
         }
         reconcileStartAtLogin()
@@ -350,6 +363,25 @@ class AppState(
 
     fun dismissPaymentPrompt() {
         _paymentPromptRow.value = null
+    }
+
+    private val _restoreRequest = MutableStateFlow<Path?>(null)
+
+    /**
+     * A backup the user has asked to put back. The window acts on it, because restoring means
+     * closing the database and starting over, which this class cannot do to itself.
+     */
+    val restoreRequest: StateFlow<Path?> = _restoreRequest.asStateFlow()
+
+    /** Backups on disk, newest first. Empty when snapshots are not configured, as in tests. */
+    fun snapshots(): List<Snapshot> = snapshotStore?.snapshots().orEmpty()
+
+    fun requestRestore(file: Path) {
+        _restoreRequest.value = file
+    }
+
+    fun cancelRestore() {
+        _restoreRequest.value = null
     }
 
     fun undoPaid(row: BillRow) {
