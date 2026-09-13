@@ -44,8 +44,7 @@ object StartupRegistration : StartupTasks {
 
         data object NotInstalled : Unavailable {
             override val message: String =
-                "Starting at sign-in needs the installed app. This copy is running from a " +
-                    "development build."
+                "Install BillMinder to use start at sign-in."
         }
     }
 

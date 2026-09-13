@@ -4,7 +4,11 @@ All notable changes to this project are recorded here.
 
 ## Unreleased
 
+## [0.2.2] - 2026-09-13
+
 ### Added
+- A version-free README hero, a transparent companion logo, and a complete archive of the brand directions considered for the desktop app.
+- Fresh product captures for Bills, Calendar, Insights, bill entry, reminders, privacy masking, recovery, and error states.
 - Reminders now reach you. A due or overdue bill raises a tray balloon and an always-on-top reminder pane naming the bill, its amount, and how the due date sits against today.
 - The reminder pane settles the bill in one click, snoozes for an hour or until tomorrow, or dismisses. A variable-amount bill opens the amount form instead of recording its estimate.
 - A snooze is held against the wall clock, so one taken before the machine sleeps fires when it wakes rather than an hour of running time later.
@@ -23,6 +27,7 @@ All notable changes to this project are recorded here.
 - Total due counts every outstanding cycle. A bill three months in arrears owed one month's amount on the header and now owes three. The ledger header also shows what the calendar month bills in total, paid or not.
 
 ### Changed
+- The development-build note in Settings is shorter, so the full explanation remains visible in the available space.
 - Reminder events used to be written to the log and nowhere else.
 - The Start-when-I-sign-in checkbox used to be permanently disabled. In a development build it still is, because there is no installed executable to point the task at, and the row now says so.
 

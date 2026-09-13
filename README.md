@@ -1,83 +1,68 @@
+![BillMinder for PC. Bills handled before they are late.](assets/marketing/billminder4pc-hero.png)
+
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-0.2.1-58A6FF?style=for-the-badge">
+  <img alt="Version" src="https://img.shields.io/badge/version-0.2.2-58A6FF?style=for-the-badge">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-4ade80?style=for-the-badge">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-58A6FF?style=for-the-badge">
 </p>
 
 # BillMinder for PC
 
-A bill tracker for Windows that actually tells you when something is due.
+BillMinder keeps due dates visible and reminds you before a bill becomes a late fee. It lives in the Windows tray, works without an account, and stores its SQLite database on your own PC.
 
-Most desktop finance software is a ledger that happens to store due dates. You open it on a Sunday, sit down with it, and reconcile. That's a fine way to do accounting and a terrible way to avoid a late fee. BillMinder for PC is built the other way round: its job is to interrupt you at the right moment and let you clear the bill in one click.
+> [Download the Windows installer](https://github.com/SysAdminDoc/BillMinder4PC/releases/latest)
 
-It keeps everything in a single SQLite file on your own machine. No account, no server, no Docker, no subscription.
+This is the desktop companion to [BillMinder for Android](https://github.com/SysAdminDoc/BillMinder). The apps share a recurrence model and a visual identity, while the desktop interface is built for a larger screen.
 
-This is the desktop companion to [BillMinder for Android](https://github.com/SysAdminDoc/BillMinder). The two share a recurrence engine and a data format, but the desktop app is its own product with a layout built for a large screen and a keyboard.
+## See the month before it gets expensive
 
-## Status
-
-Version 0.2.1 is an early but usable desktop build. Bills, Calendar, Insights, and Settings all render live local data. The app can add bills, settle them from the ledger or calendar, remember appearance and reminder preferences, and export a local backup. Reminders now interrupt you: a due bill raises a tray balloon and a reminder pane you can pay, snooze, or dismiss. It isn't an Action Center toast yet. See [ROADMAP.md](ROADMAP.md).
-
-![The bills view](docs/screenshots/v0.2.0/bills.png)
+![Bills grouped by urgency with the monthly total in view](docs/screenshots/v0.2.2/bills.png)
 
 | Calendar | Insights |
 | --- | --- |
-| ![The calendar view](docs/screenshots/v0.2.0/calendar.png) | ![The insights view](docs/screenshots/v0.2.0/insights.png) |
+| ![Bills placed on their due dates in the calendar](docs/screenshots/v0.2.2/calendar.png) | ![Payment progress, category totals, and a six-month outlook](docs/screenshots/v0.2.2/insights.png) |
 
-![The settings view](docs/screenshots/v0.2.0/settings.png)
+| Add a bill | Get a reminder |
+| --- | --- |
+| ![The focused add-bill panel](docs/screenshots/v0.2.2/add-bill.png) | ![A due-bill reminder with pay, snooze, and dismiss actions](docs/screenshots/v0.2.2/reminder.png) |
 
-## What's here now
+## What it handles
 
-- Bills grouped into what needs attention, what's coming up, and what's settled
-- A month calendar with bills inside each day and a selected-day payment action
-- Category totals, payment progress, and a six-month outlook
-- Reminder time, theme, density, launch-page, tray, and local-data controls
-- A basic monthly bill form plus local ZIP backups
-- One-click mark paid and undo, resolved against the correct billing cycle
-- The recurrence engine from the Android app, anchor dates and all, with 27 tests covering it
-- A local database at `%LOCALAPPDATA%\BillMinder4PC\billminder.db`
-- Sample bills on first run so a fresh install isn't an empty screen
-- A Windows tray badge with the due count and a tooltip showing today's bills
-- Tray quick pay for the next fixed bill, with the amount form preserved for variable bills
-- A wall-clock reminder scheduler that catches events crossed while Windows was asleep
-- Tray balloons and an always-on-top reminder pane with mark paid, snooze, and dismiss
-- Snoozes measured against the wall clock, so one taken before the machine sleeps fires on wake
-- A start-at-sign-in option that registers a Task Scheduler entry, so reminders arrive without opening the window
-- Daily rolling backups of the database, each verified by reopening it, with a restore that keeps a copy of what it replaced
+- Groups overdue, upcoming, and settled bills in one ledger.
+- Places recurring bills on a month calendar and lets you pay from the selected day.
+- Tracks category totals, payment progress, and the next six months.
+- Raises tray reminders that can mark a fixed bill paid, snooze it, or dismiss it.
+- Keeps snoozes accurate through sleep and clock changes.
+- Supports variable amounts without quietly recording an estimate as the final payment.
+- Starts at sign-in from an installed copy and stays available in the tray.
+- Makes verified rolling backups and preserves the database it replaces during a restore.
+- Can hide amounts in the window and keep bill details out of notifications.
 
-## What's coming
+Your data lives at `%LOCALAPPDATA%\BillMinder4PC\billminder.db`. There is no hosted account or subscription.
 
-Real Action Center toasts are next, so a reminder can be answered without the pane taking focus. That needs an AppUserModelID on the Start menu shortcut, which jpackage doesn't write, so it lands with the installer work.
+## Current limits
 
-The next app passes will expand bill editing, add the calendar year view, and extend the forecast. Keyboard-driven entry, printable statements, OFX and QFX import, and an Outlook-friendly ICS feed remain on the roadmap. Phone sync will use the local network with no cloud account.
+Reminders use a tray balloon and a focused reminder pane. Native Action Center actions are still planned. Bill editing, year view, import, and local-network phone sync are tracked in [ROADMAP.md](ROADMAP.md).
 
-## Building
+## Build it
 
-You need JDK 21. Packaging needs JDK 17 or newer because it runs `jpackage`.
+JDK 21 is required.
 
-```bash
-./gradlew build          # compile everything and run the tests
-./gradlew :desktop:run   # launch the app
-./gradlew packageMsi     # build the Windows installer
+```powershell
+.\gradlew.bat build
+.\gradlew.bat :desktop:run
+.\gradlew.bat :desktop:packageReleaseMsi
 ```
 
-Installers land in `desktop/build/compose/binaries/`.
+Installers land under `desktop/build/compose/binaries/`. The screenshot test renders the interface offscreen through Skia, so the product images can be refreshed without opening windows on the active desktop.
 
-The screenshots in this README are generated, not captured by hand. `./gradlew :desktop:test` renders every page offscreen through Skia. The same test also exercises the main payment, add-bill, and settings controls against real database state.
+## Project layout
 
-## Layout
-
-| Module | What it holds |
+| Module | Purpose |
 | --- | --- |
-| `core` | The recurrence engine, the bill and payment models, and the pure math. No database, no UI, no platform calls. |
-| `data` | Room 3 schema, DAO, and the repository. Uses the bundled SQLite driver so the engine version doesn't depend on the host. |
-| `desktop` | Compose Multiplatform UI, theming, and the application entry point. |
-
-`core` is deliberately dependency-free apart from Room's annotation artifact, which carries no runtime behaviour. That keeps the cycle math testable without spinning up a database.
-
-## Why a separate repo
-
-The Android app and this one share a problem domain, not a codebase. Sharing the UI layer would produce a phone app stretched across a monitor, which is the failure mode of most cross-platform ports. What they do share is the recurrence engine, and the copy here is kept honest by porting the Android test suite alongside it rather than by a build-time dependency.
+| `core` | Recurrence rules and bill models with no UI dependency. |
+| `data` | Room database, repository, snapshots, and local logging. |
+| `desktop` | Compose Desktop interface, tray behavior, reminders, and Windows packaging. |
 
 ## License
 
