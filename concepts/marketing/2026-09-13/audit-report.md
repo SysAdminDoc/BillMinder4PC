@@ -1,6 +1,6 @@
 # Marketing and interface audit
 
-Captured offscreen on 2026-09-13 from commit `c6a28f5a334459b6c3074782af362f98616146e9`.
+Captured offscreen on 2026-09-13 during the v0.2.2 release verification.
 
 ## Walkthrough
 
