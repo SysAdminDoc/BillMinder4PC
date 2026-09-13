@@ -26,7 +26,7 @@ import kotlinx.coroutines.runBlocking
 import java.awt.Desktop
 import javax.swing.SwingUtilities
 
-const val APP_VERSION = "0.2.1"
+const val APP_VERSION = "0.2.2"
 
 fun main() {
     val logger = AppLogger()
