@@ -6,6 +6,16 @@
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-58A6FF?style=for-the-badge">
 </p>
 
+<p align="center">
+  <a href="https://ko-fi.com/X8K126YVER">
+    <img height="42" src="https://storage.ko-fi.com/cdn/kofi2.png?v=3" alt="Buy me a coffee on Ko-fi" />
+  </a>
+</p>
+
+<p align="center">
+  <sub><em>If this project helps you, a coffee helps me keep working on it.</em></sub>
+</p>
+
 # BillMinder for PC
 
 BillMinder keeps due dates visible and reminds you before a bill becomes a late fee. It lives in the Windows tray, works without an account, and stores its SQLite database on your own PC.
